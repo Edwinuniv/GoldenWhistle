@@ -1,8 +1,249 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Dashboard";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+@* =====================================================================
+   DASHBOARD — matches Figma reference images 1 & 2
+   Sections: greeting/search, today's fixtures, live bracket + leaderboard,
+             stat tiles, xG by Match chart
+   TODO (Dev A): replace all static data below with ViewModel from
+   DashboardController once M1 backend (bracket + scoring) is ready.
+   ===================================================================== *@
+
+<div class="page-header">
+    <div>
+        <h1>Good evening, <span style="color:var(--green)">Marcus</span> 👋</h1>
+        <p class="subtitle">FIFA World Cup 2026 · Quarterfinal Stage</p>
+    </div>
+    <div class="search-input">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+        <input type="text" placeholder="Search teams, players..." />
+    </div>
 </div>
+
+@* ---------------- Today's Fixtures ---------------- *@
+<div style="padding: 0 var(--space-6);">
+    <div class="section-header">
+        <span class="section-title">Today's Fixtures</span>
+        <a href="#" class="btn btn-outline" style="padding:8px 18px;font-size:13px;">View all</a>
+    </div>
+
+    <div class="row g-3" id="fixturesRow">
+        <!-- Fixture card partial pattern; will loop via Razor foreach once model exists -->
+        <div class="col-6 col-md-3">
+            <div class="card is-live">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge badge-live"><span class="dot live"></span>LIVE</span>
+                    <span class="text-tertiary text-mono" style="font-size:12px;">Jun 16</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold fs-5">BR</span>
+                    <span class="fw-bold fs-4" style="color:var(--red)">2–1</span>
+                    <span class="fw-bold fs-5">AR</span>
+                </div>
+                <div class="d-flex justify-content-between text-secondary text-mono" style="font-size:11px;">
+                    <span>BRA</span><span>vs</span><span>ARG</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge badge-upcoming">UPCOMING</span>
+                    <span class="text-tertiary text-mono" style="font-size:12px;">Jun 16</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold fs-5">FR</span>
+                    <span class="fw-bold fs-4" style="color:var(--amber)">19:00</span>
+                    <span class="fw-bold fs-5">ES</span>
+                </div>
+                <div class="d-flex justify-content-between text-secondary text-mono" style="font-size:11px;">
+                    <span>FRA</span><span>vs</span><span>ESP</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge badge-upcoming">UPCOMING</span>
+                    <span class="text-tertiary text-mono" style="font-size:12px;">Jun 16</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold fs-5">DE</span>
+                    <span class="fw-bold fs-4" style="color:var(--amber)">22:00</span>
+                    <span class="fw-bold fs-5">EN</span>
+                </div>
+                <div class="d-flex justify-content-between text-secondary text-mono" style="font-size:11px;">
+                    <span>GER</span><span>vs</span><span>ENG</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-3">
+            <div class="card">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="badge badge-ft">FT</span>
+                    <span class="text-tertiary text-mono" style="font-size:12px;">Jun 15</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold fs-5">PT</span>
+                    <span class="fw-bold fs-4">1–0</span>
+                    <span class="fw-bold fs-5">NL</span>
+                </div>
+                <div class="d-flex justify-content-between text-secondary text-mono" style="font-size:11px;">
+                    <span>POR</span><span>vs</span><span>NED</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@* ---------------- Live Bracket + Global Leaderboard ---------------- *@
+<div class="content-grid">
+    <div class="panel">
+        <div class="section-header">
+            <div>
+                <h3 style="font-size:22px;">Live Bracket</h3>
+                <p class="text-secondary" style="font-size:14px;margin-top:4px;">Quarterfinals · Round of 8</p>
+            </div>
+            <span class="badge badge-live"><span class="dot live"></span>LIVE</span>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4">
+                <span class="section-title d-block mb-2">Quarter-finals</span>
+                <div class="card is-active mb-2">
+                    <div class="d-flex justify-content-between"><span><span class="text-tertiary me-2" style="font-size:11px;">BR</span>Brazil</span><strong style="color:var(--green)">2</strong></div>
+                    <div class="d-flex justify-content-between mt-1"><span><span class="text-tertiary me-2" style="font-size:11px;">AR</span>Argentina</span><strong>1</strong></div>
+                </div>
+                <div class="card">
+                    <div class="d-flex justify-content-between"><span><span class="text-tertiary me-2" style="font-size:11px;">FR</span>France</span><strong>—</strong></div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <span class="section-title d-block mb-2">Semi-finals</span>
+                <div class="card">
+                    <div><span class="text-tertiary me-2" style="font-size:11px;">BR</span>Brazil</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <span class="section-title d-block mb-2">Final</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="section-header">
+            <h3 style="font-size:22px;">Global Leaderboard</h3>
+        </div>
+        <p class="text-secondary" style="font-size:14px;margin-top:-8px;margin-bottom:16px;">This week's top predictors</p>
+
+        <div class="d-flex flex-column gap-3" id="leaderboardList">
+            @{
+                var leaders = new[] {
+                    new { Rank = 1, Name = "Marcus Thiel", Points = 2840, Delta = 120 },
+                    new { Rank = 2, Name = "Sofia Reyes",  Points = 2710, Delta = 95 },
+                    new { Rank = 3, Name = "James Okafor", Points = 2605, Delta = 80 },
+                };
+            }
+            @foreach (var l in leaders)
+            {
+                <div class="d-flex align-items-center gap-3 @(l.Rank == 1 ? "gold-highlight" : "") @(l.Rank == 1 ? "p-2" : "")" style="@(l.Rank == 1 ? "border-radius:12px;" : "")">
+                    <span class="rank-badge @(l.Rank == 1 ? "gold" : "")">@l.Rank</span>
+                    <div class="avatar"></div>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold">@l.Name</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="fw-bold @(l.Rank == 1 ? "text-gold" : "")">@l.Points.ToString("N0")</div>
+                        <div class="stat-delta" style="color:var(--green)">+@l.Delta</div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <a href="#" class="btn btn-primary w-100 mt-4">Full Leaderboard</a>
+    </div>
+</div>
+
+@* ---------------- Stat Tiles ---------------- *@
+<div class="stat-grid mb-4">
+    <div class="stat-tile">
+        <div class="stat-icon" style="background:var(--green-bg);"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M12 15a4 4 0 100-8 4 4 0 000 8zM6 21l1.5-5M18 21l-1.5-5" /></svg></div>
+        <div>
+            <div class="stat-label">Your Points</div>
+            <div class="stat-value" style="color:var(--green)">2,540</div>
+            <div class="stat-delta">+65 today</div>
+        </div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-icon" style="background:rgba(77,163,255,0.12);"><svg viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /></svg></div>
+        <div>
+            <div class="stat-label">Predictions Made</div>
+            <div class="stat-value" style="color:var(--blue)">47</div>
+            <div class="stat-delta">82% accuracy</div>
+        </div>
+    </div>
+    <div class="stat-tile gold-highlight">
+        <div class="stat-icon" style="background:var(--amber-bg-strong);"><svg viewBox="0 0 24 24" fill="none" stroke="var(--gold-bright)" stroke-width="2"><path d="M3 17l6-6 4 4 8-8" /></svg></div>
+        <div>
+            <div class="stat-label">Bracket Rank</div>
+            <div class="stat-value text-gold">#4</div>
+            <div class="stat-delta">of 12,441</div>
+        </div>
+    </div>
+    <div class="stat-tile">
+        <div class="stat-icon" style="background:var(--red-bg);"><svg viewBox="0 0 24 24" fill="none" stroke="var(--red)" stroke-width="2"><path d="M12 2a7 7 0 017 7c0 5-7 13-7 13S5 14 5 9a7 7 0 017-7z" /></svg></div>
+        <div>
+            <div class="stat-label">Live Now</div>
+            <div class="stat-value" style="color:var(--red)">1 match</div>
+            <div class="stat-delta">BRA vs ARG</div>
+        </div>
+    </div>
+</div>
+
+@* ---------------- xG by Match (animated bar chart) ---------------- *@
+<div style="padding: 0 var(--space-6) var(--space-8);">
+    <div class="panel">
+        <h3 style="font-size:22px;">xG by Match</h3>
+        <p class="text-secondary" style="font-size:14px;margin-top:4px;margin-bottom:20px;">Expected goals vs actual — this round</p>
+        <div class="chart-wrap" style="height:280px;">
+            <canvas id="xgByMatchChart"></canvas>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // TODO (Dev A): replace mock data below with real xG values from
+        // MatchStats table via API once M5 (Data Visualizer backend) ships.
+        const xgLabels = ['BRA v ARG', 'FRA v ESP', 'GER v ENG', 'POR v NED', 'ITA v URU'];
+        const xgValues = [1.95, 1.8, 1.6, 1.3, 2.1];
+
+        new Chart(document.getElementById('xgByMatchChart'), {
+            type: 'bar',
+            data: {
+                labels: xgLabels,
+                datasets: [{
+                    data: xgValues,
+                    backgroundColor: '#FFB700',
+                    borderRadius: 6,
+                    maxBarThickness: 56
+                }]
+            },
+            options: {
+                animation: drawInBarAnimation(),
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, max: 3, grid: { color: 'rgba(255,255,255,0.06)' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+
+        // Mock fan pulse — remove once MoodHub SignalR is connected (M2)
+        updateFanPulse(48, 31, 21, 247831);
+    </script>
+}
