@@ -1,0 +1,121 @@
+﻿@{
+    ViewData["Title"] = "Fan Mood Map";
+    ViewData["Page"] = "mood";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Fan Mood Map</h1>
+        <p class="subtitle">Real-time emotional pulse of the global football community</p>
+    </div>
+</div>
+
+<div style="padding: 0 var(--space-6) var(--space-6);">
+
+    <div class="panel mb-4">
+        <div class="d-flex align-items-center gap-2 mb-4">
+            <span class="dot live"></span>
+            <span class="text-mono" style="font-size:13px;letter-spacing:0.08em;">LIVE VOTING</span>
+            <span class="text-secondary" style="font-size:13px;" id="voteCountPanel">247,731 fans voted</span>
+        </div>
+
+        <div class="row g-5 align-items-center">
+            <div class="col-md-5">
+                <div class="doughnut-wrap">
+                    <canvas id="moodDoughnut"></canvas>
+                    <div id="doughnutCenter" class="doughnut-center">
+                        <div class="doughnut-emoji">🌍</div>
+                        <div class="text-secondary doughnut-label">Global mood</div>
+                    </div>
+                </div>
+                <div class="d-flex flex-column gap-2 mt-4">
+                    <div class="mood-legend-row">
+                        <span class="d-flex align-items-center gap-2"><span class="dot ecstasy"></span>Ecstasy</span>
+                        <div class="mood-legend-bar-wrap">
+                            <strong class="mood-legend-pct" style="color:var(--green);" id="legendPctE">48%</strong>
+                            <div class="mood-bar-track"><div id="barE" class="mood-bar-fill" style="width:48%;background:var(--green);"></div></div>
+                        </div>
+                    </div>
+                    <div class="mood-legend-row">
+                        <span class="d-flex align-items-center gap-2"><span class="dot anxious"></span>Anxious</span>
+                        <div class="mood-legend-bar-wrap">
+                            <strong class="mood-legend-pct" style="color:var(--amber);" id="legendPctA">31%</strong>
+                            <div class="mood-bar-track"><div id="barA" class="mood-bar-fill" style="width:31%;background:var(--amber);"></div></div>
+                        </div>
+                    </div>
+                    <div class="mood-legend-row">
+                        <span class="d-flex align-items-center gap-2"><span class="dot agony"></span>Agony</span>
+                        <div class="mood-legend-bar-wrap">
+                            <strong class="mood-legend-pct" style="color:var(--red);" id="legendPctG">21%</strong>
+                            <div class="mood-bar-track"><div id="barG" class="mood-bar-fill" style="width:21%;background:var(--red);"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-7">
+                <h2 class="mood-question">How do you feel right now?</h2>
+                <p class="text-secondary mb-4">Watching Brazil vs Argentina · 73' · 2–1</p>
+
+                <div class="d-flex flex-column gap-3" id="votingBtns">
+                    <button class="emotion-btn" data-emotion="ecstasy" onclick="castVote('ecstasy')">
+                        <span class="emotion-emoji">🤩</span>
+                        <div>
+                            <div class="emotion-name" style="color:var(--green);">Ecstasy</div>
+                            <div class="emotion-sub">We're absolutely loving it!</div>
+                        </div>
+                        <div class="emotion-pct">
+                            <div class="pct-value" style="color:var(--green);" id="pctE">48%</div>
+                            <div class="pct-fans" id="fansE">118,412 fans</div>
+                        </div>
+                        <span class="emotion-checkmark">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#052" stroke-width="3"><path d="M5 13l4 4L19 7" /></svg>
+                        </span>
+                    </button>
+
+                    <button class="emotion-btn" data-emotion="anxious" onclick="castVote('anxious')">
+                        <span class="emotion-emoji">😬</span>
+                        <div>
+                            <div class="emotion-name text-gold">Anxious</div>
+                            <div class="emotion-sub">On the edge of my seat...</div>
+                        </div>
+                        <div class="emotion-pct">
+                            <div class="pct-value text-gold" id="pctA">31%</div>
+                            <div class="pct-fans" id="fansA">76,391 fans</div>
+                        </div>
+                        <span class="emotion-checkmark emotion-checkmark-amber">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#1a0" stroke-width="3"><path d="M5 13l4 4L19 7" /></svg>
+                        </span>
+                    </button>
+
+                    <button class="emotion-btn" data-emotion="agony" onclick="castVote('agony')">
+                        <span class="emotion-emoji">😭</span>
+                        <div>
+                            <div class="emotion-name" style="color:var(--red);">Agony</div>
+                            <div class="emotion-sub">This is painful to watch</div>
+                        </div>
+                        <div class="emotion-pct">
+                            <div class="pct-value" style="color:var(--red);" id="pctG">21%</div>
+                            <div class="pct-fans" id="fansG">52,928 fans</div>
+                        </div>
+                        <span class="emotion-checkmark emotion-checkmark-red">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M5 13l4 4L19 7" /></svg>
+                        </span>
+                    </button>
+                </div>
+
+                <div class="thanks-msg" id="thanksMsg">
+                    Your vote is in! <span>Thanks for sharing your pulse 💚</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <h3 style="font-size:22px;">Mood Timeline</h3>
+        <p class="text-secondary" style="font-size:14px;margin-top:4px;margin-bottom:20px;">Fan sentiment over the last 90 minutes</p>
+        <div class="chart-wrap" style="height:260px;">
+            <canvas id="moodTimelineChart"></canvas>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,219 @@
+﻿@{
+    ViewData["Title"] = "Profile & Settings";
+    ViewData["Page"] = "profile";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Profile & Settings</h1>
+        <p class="subtitle">Manage your account and preferences</p>
+    </div>
+</div>
+
+<div style="padding: 0 var(--space-6) var(--space-8);">
+
+    @* ---- Profile Hero ---- *@
+    <div class="panel mb-5">
+        <div class="profile-hero">
+            <div class="profile-avatar-wrap">
+                <div class="profile-avatar">M</div>
+                <div class="profile-avatar-edit">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                </div>
+            </div>
+            <div class="flex-grow-1">
+                <h2 style="font-size:26px;">Marcus Thiel</h2>
+                <p class="text-secondary" style="margin-top:4px;">marcus.thiel@email.com · Member since Jan 2026</p>
+                <div class="d-flex gap-3 mt-3 flex-wrap">
+                    <span class="badge badge-success">⚡ Pro Predictor</span>
+                    <span class="badge badge-gold">🏆 Top 10 Global</span>
+                    <span class="badge badge-ft">47 Predictions</span>
+                </div>
+            </div>
+            <div class="profile-stats">
+                <div class="profile-stat">
+                    <div class="profile-stat-value" style="color:var(--green);">2,840</div>
+                    <div class="profile-stat-label">Total Points</div>
+                </div>
+                <div class="profile-stat-divider"></div>
+                <div class="profile-stat">
+                    <div class="profile-stat-value text-gold">#4</div>
+                    <div class="profile-stat-label">Global Rank</div>
+                </div>
+                <div class="profile-stat-divider"></div>
+                <div class="profile-stat">
+                    <div class="profile-stat-value" style="color:var(--blue);">82%</div>
+                    <div class="profile-stat-label">Accuracy</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ---- Settings Tabs ---- *@
+    <div class="settings-nav">
+        <button class="settings-tab active" onclick="showTab(event,'account')">Account</button>
+        <button class="settings-tab" onclick="showTab(event,'notifications')">Notifications</button>
+        <button class="settings-tab" onclick="showTab(event,'preferences')">Preferences</button>
+        <button class="settings-tab" onclick="showTab(event,'privacy')">Privacy & Security</button>
+    </div>
+
+    @* ---- TAB: Account ---- *@
+    <div id="tab-account">
+        <div class="row g-4">
+            <div class="col-md-8">
+                <div class="panel">
+                    <h3 class="settings-section-title">Personal Information</h3>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <label class="form-label-wch">First Name</label>
+                            <input class="form-input-wch" type="text" value="Marcus" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label-wch">Last Name</label>
+                            <input class="form-input-wch" type="text" value="Thiel" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-wch">Email</label>
+                            <input class="form-input-wch" type="email" value="marcus.thiel@email.com" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-wch">Username</label>
+                            <input class="form-input-wch" type="text" value="marcus_thiel" />
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label-wch">Favourite Team</label>
+                            <input class="form-input-wch" type="text" placeholder="e.g. Brazil, France..." />
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-primary">Save Changes</button>
+                            <button class="btn btn-ghost ms-2">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 d-flex flex-column gap-4">
+                <div class="panel">
+                    <h3 class="settings-section-title">Change Password</h3>
+                    <div class="d-flex flex-column gap-3">
+                        <div>
+                            <label class="form-label-wch">Current Password</label>
+                            <input class="form-input-wch" type="password" placeholder="••••••••" />
+                        </div>
+                        <div>
+                            <label class="form-label-wch">New Password</label>
+                            <input class="form-input-wch" type="password" placeholder="••••••••" />
+                        </div>
+                        <div>
+                            <label class="form-label-wch">Confirm Password</label>
+                            <input class="form-input-wch" type="password" placeholder="••••••••" />
+                        </div>
+                        <button class="btn btn-outline">Update Password</button>
+                    </div>
+                </div>
+                <div class="danger-zone">
+                    <h3 class="settings-section-title" style="color:var(--red);">Danger Zone</h3>
+                    <p class="text-secondary" style="font-size:13px;margin-bottom:16px;">Permanently delete your account and all data.</p>
+                    <button class="btn btn-danger-soft w-100">Delete Account</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ---- TAB: Notifications ---- *@
+    <div id="tab-notifications" class="settings-tab-panel">
+        <div class="panel settings-panel-narrow">
+            <h3 class="settings-section-title">Notification Preferences</h3>
+            <div class="toggle-row">
+                <div><div class="fw-bold">Match Kickoff Alerts</div><div class="text-secondary" style="font-size:13px;">Get notified 15 min before each match</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="fw-bold">Goal Notifications</div><div class="text-secondary" style="font-size:13px;">Real-time goal alerts during live matches</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="fw-bold">Leaderboard Changes</div><div class="text-secondary" style="font-size:13px;">When your rank changes in any league</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="fw-bold">Private League Activity</div><div class="text-secondary" style="font-size:13px;">New members, challenges, results</div></div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="fw-bold">Marketplace Messages</div><div class="text-secondary" style="font-size:13px;">New messages from buyers/sellers</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="fw-bold">Weekly Digest Email</div><div class="text-secondary" style="font-size:13px;">Summary of your week's performance</div></div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="mt-4"><button class="btn btn-primary">Save Preferences</button></div>
+        </div>
+    </div>
+
+    @* ---- TAB: Preferences ---- *@
+    <div id="tab-preferences" class="settings-tab-panel">
+        <div class="panel settings-panel-narrow">
+            <h3 class="settings-section-title">App Preferences</h3>
+            <div class="d-flex flex-column gap-4">
+                <div>
+                    <label class="form-label-wch">Language</label>
+                    <select class="form-input-wch">
+                        <option>English</option>
+                        <option>Français</option>
+                        <option>Español</option>
+                        <option>Deutsch</option>
+                        <option>Português</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-wch">Timezone</label>
+                    <select class="form-input-wch">
+                        <option>UTC+0 — London</option>
+                        <option>UTC+1 — Paris, Berlin</option>
+                        <option>UTC+2 — Beirut, Cairo</option>
+                        <option>UTC-3 — São Paulo</option>
+                        <option>UTC-5 — New York</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label-wch">Default Match View</label>
+                    <select class="form-input-wch">
+                        <option>Live Bracket</option>
+                        <option>Data Visualizer</option>
+                        <option>Mood Map</option>
+                    </select>
+                </div>
+                <div class="toggle-row" style="border-bottom:none;padding:0;">
+                    <div><div class="fw-bold">Compact Sidebar</div><div class="text-secondary" style="font-size:13px;">Icons only, no labels</div></div>
+                    <div class="toggle" onclick="this.classList.toggle('on')"></div>
+                </div>
+                <button class="btn btn-primary">Save Preferences</button>
+            </div>
+        </div>
+    </div>
+
+    @* ---- TAB: Privacy ---- *@
+    <div id="tab-privacy" class="settings-tab-panel">
+        <div class="panel settings-panel-narrow">
+            <h3 class="settings-section-title">Privacy & Security</h3>
+            <div class="toggle-row">
+                <div><div class="fw-bold">Public Profile</div><div class="text-secondary" style="font-size:13px;">Allow others to see your predictions and rank</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="fw-bold">Show on Global Leaderboard</div><div class="text-secondary" style="font-size:13px;">Appear in the public top predictors list</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="fw-bold">Two-Factor Authentication</div><div class="text-secondary" style="font-size:13px;">Add an extra layer of security</div></div>
+                <div class="toggle" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="toggle-row">
+                <div><div class="fw-bold">Marketplace Visibility</div><div class="text-secondary" style="font-size:13px;">Show your jersey listings to everyone</div></div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+            </div>
+            <div class="mt-4"><button class="btn btn-primary">Save Privacy Settings</button></div>
+        </div>
+    </div>
+</div>

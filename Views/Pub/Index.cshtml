@@ -1,0 +1,68 @@
+﻿@{
+    ViewData["Title"] = "Pub Finder";
+    ViewData["Page"] = "pub";
+}
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<div class="pub-shell">
+
+    @* ---- Left: pub list ---- *@
+    <div class="pub-sidebar">
+        <div class="pub-sidebar-header">
+            <h2 style="font-size:22px;margin-bottom:var(--space-4);">Pub Finder</h2>
+
+            <div class="pub-search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-tertiary)" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+                <input type="text" id="pubSearchInput" placeholder="Search pubs near you..." oninput="filterPubs(this.value)" />
+            </div>
+
+            <div class="filter-chips">
+                <span class="chip active" onclick="setFilter(this,'all')">All</span>
+                <span class="chip" onclick="setFilter(this,'open')">Open Now</span>
+                <span class="chip" onclick="setFilter(this,'free')">Free Entry</span>
+                <span class="chip" onclick="setFilter(this,'hd')">HD Screens</span>
+            </div>
+        </div>
+
+        <div class="pub-list" id="pubList">
+            @* Cards injected by JS *@
+        </div>
+    </div>
+
+    @* ---- Right: map ---- *@
+    <div class="pub-map-wrap">
+        <div id="pubMap"></div>
+
+        <div class="location-badge">
+            <div class="city">London</div>
+            <div class="count">4 venues found nearby</div>
+        </div>
+
+        <button class="locate-btn" onclick="locateMe()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3" /><path d="M12 1v4M12 19v4M1 12h4M19 12h4" /></svg>
+            Locate Me
+        </button>
+
+        @* Detail popup *@
+        <div class="pub-detail-popup" id="pubDetailPopup">
+            <img id="popupImg" src="" alt="" />
+            <div class="flex-grow-1">
+                <div class="d-flex justify-content-between align-items-start">
+                    <strong id="popupName" style="font-size:16px;"></strong>
+                    <span id="popupStatus" class="badge ms-2"></span>
+                </div>
+                <div class="text-secondary" style="font-size:13px;margin-top:4px;" id="popupAddr"></div>
+                <div class="d-flex align-items-center gap-2 mt-1">
+                    <span class="stars" id="popupStars">★★★★★</span>
+                    <span class="text-secondary" style="font-size:13px;" id="popupReviews"></span>
+                </div>
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-primary" style="padding:8px 14px;font-size:12px;">Get Directions</button>
+                    <button class="btn btn-outline" style="padding:8px 14px;font-size:12px;">Book a Table</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+

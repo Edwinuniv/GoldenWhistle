@@ -1,5 +1,6 @@
 ﻿@{
     ViewData["Title"] = "Bracket Challenge";
+    ViewData["Page"] = "bracket";
 }
 
 @* =====================================================================
@@ -198,13 +199,6 @@
     </div>
 </div>
 
-@section Scripts {
-    <script>
-        // Mock fan pulse — replace once MoodHub SignalR is connected (M2)
-        updateFanPulse(48, 31, 21, 247831);
-
-        // TODO (Dev A + Dev B contract): once LeaderboardHub exists, subscribe here:
-        // const conn = initSignalRConnection('/hubs/leaderboard');
-        // conn.on('LeagueRankUpdated', (payload) => { /* re-render members list */ });
-    </script>
+);
+</script>
 }
