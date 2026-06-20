@@ -4,13 +4,12 @@
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>43dacf7e-3e7b-4022-a720-91cbc9fc7c4c</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
     <Folder Include="BackgroundServices\" />
-    <Folder Include="DTOs\" />
     <Folder Include="Repositories\Interfaces\" />
-    <Folder Include="Services\Interfaces\" />
     <Folder Include="ViewModels\" />
   </ItemGroup>
 
