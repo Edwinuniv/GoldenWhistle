@@ -1,11 +1,12 @@
-﻿@{
+﻿@model GoldenWhistle.ViewModels.DashboardViewModel
+@{
     ViewData["Title"] = "Dashboard";
     ViewData["Page"] = "dashboard";
 }
 
 <div class="page-header">
     <div>
-        <h1>Good evening, <span style="color:var(--green)">Marcus</span> 👋</h1>
+        <h1>Good evening, <span style="color:var(--green)">@Model.UserDisplayName</span> 👋</h1>
         <p class="subtitle">FIFA World Cup 2026 · Quarterfinal Stage</p>
     </div>
     <div class="search-input">
@@ -20,70 +21,38 @@
         <a href="#" class="btn btn-outline" style="padding:8px 18px;font-size:13px;">View all</a>
     </div>
     <div class="row g-3">
-        <div class="col-6 col-md-3">
-            <div class="card is-live">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <span class="badge badge-live"><span class="dot live"></span>LIVE</span>
-                    <span class="text-tertiary text-mono" style="font-size:12px;">Jun 16</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="fw-bold fs-5">BR</span>
-                    <span class="fw-bold fs-4" style="color:var(--red)">2–1</span>
-                    <span class="fw-bold fs-5">AR</span>
-                </div>
-                <div class="d-flex justify-content-between text-secondary text-mono" style="font-size:11px;">
-                    <span>BRA</span><span>vs</span><span>ARG</span>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <span class="badge badge-upcoming">UPCOMING</span>
-                    <span class="text-tertiary text-mono" style="font-size:12px;">Jun 16</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="fw-bold fs-5">FR</span>
-                    <span class="fw-bold fs-4" style="color:var(--amber)">19:00</span>
-                    <span class="fw-bold fs-5">ES</span>
-                </div>
-                <div class="d-flex justify-content-between text-secondary text-mono" style="font-size:11px;">
-                    <span>FRA</span><span>vs</span><span>ESP</span>
-                </div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <span class="badge badge-upcoming">UPCOMING</span>
-                    <span class="text-tertiary text-mono" style="font-size:12px;">Jun 16</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="fw-bold fs-5">DE</span>
-                    <span class="fw-bold fs-4" style="color:var(--amber)">22:00</span>
-                    <span class="fw-bold fs-5">EN</span>
-                </div>
-                <div class="d-flex justify-content-between text-secondary text-mono" style="font-size:11px;">
-                    <span>GER</span><span>vs</span><span>ENG</span>
+        @foreach (var f in Model.Fixtures)
+        {
+            <div class="col-6 col-md-3">
+                <div class="card @(f.IsLive ? "is-live" : "")">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="badge @(f.StatusBadge == "LIVE" ? "badge-live" : f.StatusBadge == "UPCOMING" ? "badge-upcoming" : "badge-ft")">
+                            @if (f.IsLive)
+                            {
+                                <span class="dot live"></span>
+                            }
+                            @f.StatusBadge
+                        </span>
+                        <span class="text-tertiary text-mono" style="font-size:12px;">@f.MatchDate</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span class="fw-bold fs-5">@f.HomeTeamCode</span>
+                        @if (f.IsLive || f.StatusBadge == "FT")
+                        {
+                            <span class="fw-bold fs-4" style="color:@(f.IsLive ? "var(--red)" : "inherit")">@f.HomeScore–@f.AwayScore</span>
+                        }
+                        else
+                        {
+                            <span class="fw-bold fs-4" style="color:var(--amber)">@f.KickoffTime</span>
+                        }
+                        <span class="fw-bold fs-5">@f.AwayTeamCode</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-secondary text-mono" style="font-size:11px;">
+                        <span>@f.HomeTeamName</span><span>vs</span><span>@f.AwayTeamName</span>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card">
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <span class="badge badge-ft">FT</span>
-                    <span class="text-tertiary text-mono" style="font-size:12px;">Jun 15</span>
-                </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="fw-bold fs-5">PT</span>
-                    <span class="fw-bold fs-4">1–0</span>
-                    <span class="fw-bold fs-5">NL</span>
-                </div>
-                <div class="d-flex justify-content-between text-secondary text-mono" style="font-size:11px;">
-                    <span>POR</span><span>vs</span><span>NED</span>
-                </div>
-            </div>
-        </div>
+        }
     </div>
 </div>
 
@@ -97,25 +66,25 @@
             <span class="badge badge-live"><span class="dot live"></span>LIVE</span>
         </div>
         <div class="row">
-            <div class="col-md-4">
-                <span class="section-title d-block mb-2">Quarter-finals</span>
-                <div class="card is-active mb-2">
-                    <div class="d-flex justify-content-between"><span><span class="text-tertiary me-2" style="font-size:11px;">BR</span>Brazil</span><strong style="color:var(--green)">2</strong></div>
-                    <div class="d-flex justify-content-between mt-1"><span><span class="text-tertiary me-2" style="font-size:11px;">AR</span>Argentina</span><strong>1</strong></div>
+            @foreach (var round in new[] { "QF", "SF", "FINAL" })
+            {
+                <div class="col-md-4">
+                    <span class="section-title d-block mb-2">@(round == "QF" ? "Quarter-finals" : round == "SF" ? "Semi-finals" : "Final")</span>
+                    @foreach (var m in Model.BracketMatches.Where(x => x.Round == round))
+                    {
+                        <div class="card @(m.IsWinner ? "is-active" : "") mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span><span class="text-tertiary me-2" style="font-size:11px;">@m.HomeTeamCode</span>@m.HomeTeamName</span>
+                                <strong @(m.IsWinner ? "style=color:var(--green)" : "")>@(m.HomeScore?.ToString() ?? "—")</strong>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1">
+                                <span><span class="text-tertiary me-2" style="font-size:11px;">@m.AwayTeamCode</span>@m.AwayTeamName</span>
+                                <strong>@(m.AwayScore?.ToString() ?? "—")</strong>
+                            </div>
+                        </div>
+                    }
                 </div>
-                <div class="card">
-                    <div class="d-flex justify-content-between"><span><span class="text-tertiary me-2" style="font-size:11px;">FR</span>France</span><strong>—</strong></div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <span class="section-title d-block mb-2">Semi-finals</span>
-                <div class="card">
-                    <div><span class="text-tertiary me-2" style="font-size:11px;">BR</span>Brazil</div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <span class="section-title d-block mb-2">Final</span>
-            </div>
+            }
         </div>
     </div>
 
@@ -125,22 +94,15 @@
         </div>
         <p class="text-secondary" style="font-size:14px;margin-top:-8px;margin-bottom:16px;">This week's top predictors</p>
         <div class="d-flex flex-column gap-3" id="leaderboardList">
-            @{
-                var leaders = new[] {
-                    new { Rank = 1, Name = "Marcus Thiel", Points = 2840, Delta = 120 },
-                    new { Rank = 2, Name = "Sofia Reyes",  Points = 2710, Delta = 95  },
-                    new { Rank = 3, Name = "James Okafor", Points = 2605, Delta = 80  },
-                };
-            }
-            @foreach (var l in leaders)
+            @foreach (var l in Model.TopLeaders)
             {
                 <div class="d-flex align-items-center gap-3 @(l.Rank == 1 ? "gold-highlight p-2" : "")" style="@(l.Rank == 1 ? "border-radius:12px;" : "")">
                     <span class="rank-badge @(l.Rank == 1 ? "gold" : "")">@l.Rank</span>
                     <div class="avatar"></div>
-                    <div class="flex-grow-1"><div class="fw-bold">@l.Name</div></div>
+                    <div class="flex-grow-1"><div class="fw-bold">@l.UserName</div></div>
                     <div class="text-end">
                         <div class="fw-bold @(l.Rank == 1 ? "text-gold" : "")">@l.Points.ToString("N0")</div>
-                        <div class="stat-delta" style="color:var(--green)">+@l.Delta</div>
+                        <div class="stat-delta" style="color:var(--green)">+@l.PointsDelta</div>
                     </div>
                 </div>
             }
@@ -156,8 +118,8 @@
         </div>
         <div>
             <div class="stat-label">Your Points</div>
-            <div class="stat-value" style="color:var(--green)">2,540</div>
-            <div class="stat-delta">+65 today</div>
+            <div class="stat-value" style="color:var(--green)">@Model.UserTotalPoints.ToString("N0")</div>
+            <div class="stat-delta">+@Model.UserPointsDeltaToday today</div>
         </div>
     </div>
     <div class="stat-tile">
@@ -166,8 +128,8 @@
         </div>
         <div>
             <div class="stat-label">Predictions Made</div>
-            <div class="stat-value" style="color:var(--blue)">47</div>
-            <div class="stat-delta">82% accuracy</div>
+            <div class="stat-value" style="color:var(--blue)">@Model.UserPredictionsMade</div>
+            <div class="stat-delta">@Model.UserAccuracyPct% accuracy</div>
         </div>
     </div>
     <div class="stat-tile gold-highlight">
@@ -176,8 +138,8 @@
         </div>
         <div>
             <div class="stat-label">Bracket Rank</div>
-            <div class="stat-value text-gold">#4</div>
-            <div class="stat-delta">of 12,441</div>
+            <div class="stat-value text-gold">#@Model.UserBracketRank</div>
+            <div class="stat-delta">of @Model.TotalPlayers.ToString("N0")</div>
         </div>
     </div>
     <div class="stat-tile">
@@ -186,8 +148,12 @@
         </div>
         <div>
             <div class="stat-label">Live Now</div>
-            <div class="stat-value" style="color:var(--red)">1 match</div>
-            <div class="stat-delta">BRA vs ARG</div>
+            <div class="stat-value" style="color:var(--red)">
+                @(Model.Fixtures.Count(f => f.IsLive)) match@(Model.Fixtures.Count(f => f.IsLive) > 1 ? "es" : "")
+            </div>
+            <div class="stat-delta">
+                @(Model.Fixtures.FirstOrDefault(f => f.IsLive) is { } live ? $"{live.HomeTeamCode} vs {live.AwayTeamCode}" : "No live match")
+            </div>
         </div>
     </div>
 </div>
@@ -197,7 +163,11 @@
         <h3 style="font-size:22px;">xG by Match</h3>
         <p class="text-secondary" style="font-size:14px;margin-top:4px;margin-bottom:20px;">Expected goals vs actual — this round</p>
         <div class="chart-wrap" style="height:280px;">
-            <canvas id="xgByMatchChart"></canvas>
+            <canvas id="xgByMatchChart"
+                    data-labels="@string.Join(",", Model.XgByMatch.Select(x => x.MatchLabel))"
+                    data-values="@string.Join(",", Model.XgByMatch.Select(x => x.XgValue))">
+            </canvas>
         </div>
     </div>
 </div>
+    

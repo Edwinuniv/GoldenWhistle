@@ -10,7 +10,6 @@
   <ItemGroup>
     <Folder Include="BackgroundServices\" />
     <Folder Include="Repositories\Interfaces\" />
-    <Folder Include="ViewModels\" />
   </ItemGroup>
 
   <ItemGroup>

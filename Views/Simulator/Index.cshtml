@@ -1,0 +1,109 @@
+﻿@{
+    ViewData["Title"] = "What If? Simulator";
+    ViewData["Page"] = "simulator";
+}
+
+<div class="page-header">
+    <div>
+        <h1>"What If?" Simulator</h1>
+        <p class="subtitle">Rewrite the bracket — your rules, your tournament</p>
+    </div>
+    <div class="page-actions">
+        <button class="btn btn-ghost" onclick="resetSimulator()">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 109-9 9 9 0 00-9 9M3 3v6h6" /></svg>
+            Reset
+        </button>
+        <button class="btn btn-primary" onclick="generateNarrative()">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 11-13h-7z" /></svg>
+            Generate Narrative
+        </button>
+    </div>
+</div>
+
+<div style="padding: 0 var(--space-6) var(--space-8);">
+    <div class="row g-4">
+
+        @* ---- Left: score sliders ---- *@
+        <div class="col-md-5">
+            <div class="panel">
+                <h3 style="font-size:20px;margin-bottom:6px;">Adjust Results</h3>
+                <p class="text-secondary" style="font-size:13px;margin-bottom:20px;">Drag sliders to set hypothetical scores</p>
+                <div class="d-flex flex-column gap-5" id="slidersList">
+                    @* Injected by JS initSimulator() *@
+                </div>
+            </div>
+        </div>
+
+        @* ---- Center: alternate bracket ---- *@
+        <div class="col-md-4">
+            <div class="panel">
+                <h3 style="font-size:20px;margin-bottom:6px;">Alternate Bracket</h3>
+                <p class="text-secondary" style="font-size:13px;margin-bottom:20px;">Based on your adjusted scores</p>
+
+                <span class="section-title d-block mb-3">QF WINNERS</span>
+                <div class="d-flex flex-column gap-2 mb-4" id="qfWinners">
+                    @* Injected by JS *@
+                </div>
+
+                <div class="row g-2">
+                    <div class="col-6">
+                        <span class="section-title d-block mb-2">SEMI-FINALS</span>
+                        <div class="d-flex flex-column gap-2" id="sfTeams">
+                            @* Injected by JS *@
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <span class="section-title d-block mb-2">FINAL</span>
+                        <div class="sim-final-card gold-highlight" id="finalCard">
+                            <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--gold-bright)" stroke-width="1.5"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4z" /></svg>
+                            <div class="text-gold fw-bold" style="font-size:12px;letter-spacing:0.08em;">WORLD CHAMPION</div>
+                            <div class="text-tertiary mt-2" id="finalTeam1">TBD</div>
+                            <div class="text-tertiary mt-1" id="finalTeam2">TBD</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ---- Right: win probability + surprise factor ---- *@
+        <div class="col-md-3">
+            <div class="panel mb-4">
+                <h3 style="font-size:18px;margin-bottom:16px;">Win Probability</h3>
+                <div class="d-flex flex-column gap-3" id="winProbList">
+                    @* Injected by JS *@
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3 style="font-size:18px;margin-bottom:16px;">Surprise Factor</h3>
+                <div class="d-flex flex-column gap-2" id="surpriseList">
+                    @* Injected by JS *@
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ---- Narrative CTA ---- *@
+    <div class="sim-narrative-cta mt-4" id="narrativeCta">
+        <div class="stat-icon" style="background:var(--green-bg);">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2"><path d="M13 2L3 14h7l-1 8 11-13h-7z" /></svg>
+        </div>
+        <div class="flex-grow-1">
+            <div class="fw-bold">Adjust the scores above, then generate your alternate history</div>
+            <div class="text-secondary" style="font-size:13px;">WorldCupHub AI will write a narrative based on your hypothetical bracket results</div>
+        </div>
+        <button class="btn btn-primary" onclick="generateNarrative()">Generate</button>
+    </div>
+
+    @* ---- Narrative output ---- *@
+    <div class="panel mt-4 sim-narrative-output" id="narrativeOutput" style="display:none;">
+        <div class="d-flex align-items-center gap-3 mb-3">
+            <div class="stat-icon" style="background:var(--green-bg);">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2"><path d="M13 2L3 14h7l-1 8 11-13h-7z" /></svg>
+            </div>
+            <h3 style="font-size:18px;">Your Alternate History</h3>
+            <span class="badge badge-success">AI Generated</span>
+        </div>
+        <p class="text-secondary" style="font-size:14px;line-height:1.8;" id="narrativeText"></p>
+    </div>
+</div>

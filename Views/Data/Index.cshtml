@@ -1,0 +1,143 @@
+﻿@{
+    ViewData["Title"] = "Data Visualizer";
+    ViewData["Page"] = "data";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Data Visualizer</h1>
+        <p class="subtitle" id="dataMatchLabel">Live analytics · Brazil 2–1 Argentina · QF</p>
+    </div>
+    <div class="page-actions">
+        <span class="badge badge-live"><span class="dot live"></span>LIVE 73'</span>
+        <button class="btn btn-outline">Export</button>
+    </div>
+</div>
+
+<div style="padding: 0 var(--space-6) var(--space-8);">
+
+    @* ---- Match scoreboard ---- *@
+    <div class="panel mb-4">
+        <div class="data-scoreboard">
+            <div class="data-team">
+                <div class="data-team-code">BR</div>
+                <div class="data-team-name">Brazil</div>
+            </div>
+            <div class="data-score-center">
+                <div class="data-score-minute">73'</div>
+                <div class="data-score-main">
+                    <span class="data-score-home">2</span>
+                    <span class="data-score-sep">–</span>
+                    <span class="data-score-away">1</span>
+                </div>
+                <span class="badge badge-live">LIVE</span>
+            </div>
+            <div class="data-team data-team-right">
+                <div class="data-team-code">AR</div>
+                <div class="data-team-name">Argentina</div>
+            </div>
+        </div>
+
+        <div class="data-stats-row">
+            <div class="data-stat-col">
+                <span class="data-stat-home" style="color:var(--green);">1.95</span>
+                <span class="data-stat-label">XG</span>
+                <span class="data-stat-away">1.38</span>
+            </div>
+            <div class="data-stat-col">
+                <span class="data-stat-home" style="color:var(--green);">14</span>
+                <span class="data-stat-label">SHOTS</span>
+                <span class="data-stat-away">9</span>
+            </div>
+            <div class="data-stat-col">
+                <span class="data-stat-home" style="color:var(--green);">56%</span>
+                <span class="data-stat-label">POSSESSION</span>
+                <span class="data-stat-away">44%</span>
+            </div>
+            <div class="data-stat-col">
+                <span class="data-stat-home" style="color:var(--green);">387</span>
+                <span class="data-stat-label">PASSES</span>
+                <span class="data-stat-away">312</span>
+            </div>
+            <div class="data-stat-col">
+                <span class="data-stat-home" style="color:var(--green);">28</span>
+                <span class="data-stat-label">DUELS WON</span>
+                <span class="data-stat-away">22</span>
+            </div>
+        </div>
+    </div>
+
+    @* ---- xG Timeline + Team Radar ---- *@
+    <div class="row g-4 mb-4">
+        <div class="col-md-8">
+            <div class="panel">
+                <h3 style="font-size:20px;">xG Timeline</h3>
+                <p class="text-secondary" style="font-size:13px;margin-top:4px;margin-bottom:20px;">Cumulative expected goals over 90 minutes</p>
+                <div class="chart-wrap" style="height:220px;">
+                    <canvas id="xgTimelineChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="panel h-100">
+                <h3 style="font-size:20px;">Team Radar</h3>
+                <p class="text-secondary" style="font-size:13px;margin-top:4px;margin-bottom:20px;">Performance comparison</p>
+                <div class="chart-wrap" style="height:220px;">
+                    <canvas id="teamRadarChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* ---- Possession Flow + AI Summary ---- *@
+    <div class="row g-4 mb-4">
+        <div class="col-md-6">
+            <div class="panel">
+                <h3 style="font-size:20px;">Possession Flow</h3>
+                <p class="text-secondary" style="font-size:13px;margin-top:4px;margin-bottom:20px;">By 15-min interval</p>
+                <div class="chart-wrap" style="height:220px;">
+                    <canvas id="possessionChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="panel">
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="stat-icon" style="background:var(--green-bg);">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><path d="M13 2L3 14h7l-1 8 11-13h-7z" /></svg>
+                    </div>
+                    <h3 style="font-size:20px;">AI Match Summary</h3>
+                    <span class="badge badge-ft">Neutral</span>
+                </div>
+                <p class="text-secondary" style="font-size:14px;line-height:1.7;" id="aiSummaryText">
+                    Brazil have controlled this quarterfinal with dominant ball retention (56%) and a clinical edge in front of goal. Vinicius Jr.'s strike in the 73rd minute off a Rodrygo assist proved decisive after Messi's equaliser had threatened a turnaround.
+                </p>
+                <p class="text-secondary" style="font-size:14px;line-height:1.7;margin-top:12px;" id="aiSummaryText2">
+                    Argentina's xG of <strong style="color:var(--amber);">1.38</strong> reflects dangerous moments that Alisson dealt with admirably. Brazil's <strong style="color:var(--green);">1.95 xG</strong> underscores their territorial superiority throughout.
+                </p>
+                <p class="text-tertiary" style="font-size:12px;margin-top:16px;">Generated by WorldCupHub AI · Not affiliated with FIFA</p>
+            </div>
+        </div>
+    </div>
+
+    @* ---- Heat Map ---- *@
+    <div class="panel">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h3 style="font-size:20px;">Heat Map Overlay</h3>
+                <p class="text-secondary" style="font-size:13px;margin-top:4px;">Ball touch concentration</p>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline heatmap-team-btn active" onclick="setHeatmapTeam(this,'home')">Brazil</button>
+                <button class="btn btn-ghost heatmap-team-btn" onclick="setHeatmapTeam(this,'away')">Argentina</button>
+            </div>
+        </div>
+        <div class="heatmap-pitch" id="heatmapPitch">
+            <canvas id="heatmapCanvas"></canvas>
+            <div class="heatmap-legend">
+                <span class="d-flex align-items-center gap-2"><span class="dot" style="background:var(--green);"></span>Brazil intensity</span>
+                <span class="d-flex align-items-center gap-2"><span class="dot" style="background:var(--red);"></span>Argentina</span>
+            </div>
+        </div>
+    </div>
+</div>

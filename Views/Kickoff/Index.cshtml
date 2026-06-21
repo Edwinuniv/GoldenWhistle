@@ -1,0 +1,93 @@
+﻿@{
+    ViewData["Title"] = "Kickoff Companion";
+    ViewData["Page"] = "kickoff";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Kickoff Companion</h1>
+        <p class="subtitle">30-second match previews — injuries, tactics, weird facts</p>
+    </div>
+    <div class="page-actions">
+        <div class="search-input">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+            <input type="text" id="kickoffSearchInput" placeholder="Search match..." oninput="filterKickoff(this.value)" />
+        </div>
+    </div>
+</div>
+
+<div style="padding: 0 var(--space-6) var(--space-8);">
+
+    @* ---- Upcoming matches tabs ---- *@
+    <div class="filter-chips mb-5" id="kickoffMatchTabs">
+        @* Injected by JS *@
+    </div>
+
+    @* ---- Active preview card ---- *@
+    <div class="kickoff-hero panel mb-5" id="kickoffHeroCard">
+        <div class="kickoff-countdown-bar" id="kickoffCountdownBar">
+            <span class="dot live"></span>
+            <span class="text-mono" style="font-size:13px;letter-spacing:0.08em;" id="kickoffCountdownLabel">KICKOFF IN</span>
+            <span class="kickoff-countdown-time" id="kickoffCountdown">00:00:00</span>
+        </div>
+
+        <div class="kickoff-teams-row">
+            <div class="kickoff-team">
+                <div class="kickoff-team-flag" id="heroHomeFlag">🇧🇷</div>
+                <div class="kickoff-team-name" id="heroHomeName">Brazil</div>
+                <div class="kickoff-team-record text-secondary" id="heroHomeRecord">W4 D1 L0</div>
+            </div>
+            <div class="kickoff-vs-block">
+                <div class="kickoff-vs">VS</div>
+                <div class="kickoff-match-info text-secondary" id="heroMatchInfo">QF · MetLife Stadium · 19:00 CET</div>
+            </div>
+            <div class="kickoff-team kickoff-team-right">
+                <div class="kickoff-team-flag" id="heroAwayFlag">🇦🇷</div>
+                <div class="kickoff-team-name" id="heroAwayName">Argentina</div>
+                <div class="kickoff-team-record text-secondary" id="heroAwayRecord">W3 D2 L0</div>
+            </div>
+        </div>
+
+        @* ---- Info tabs inside the card ---- *@
+        <div class="kickoff-tabs">
+            <button class="kickoff-tab active" onclick="showKickoffTab(event,'injuries')">🏥 Injuries</button>
+            <button class="kickoff-tab" onclick="showKickoffTab(event,'tactics')">⚽ Tactics</button>
+            <button class="kickoff-tab" onclick="showKickoffTab(event,'facts')">🎲 Weird Facts</button>
+            <button class="kickoff-tab" onclick="showKickoffTab(event,'h2h')">📊 Head to Head</button>
+        </div>
+
+        @* Injuries *@
+        <div class="kickoff-tab-panel active" id="kpanel-injuries">
+            <div class="row g-4" id="injuriesList">
+                @* Injected by JS *@
+            </div>
+        </div>
+
+        @* Tactics *@
+        <div class="kickoff-tab-panel" id="kpanel-tactics">
+            <div class="row g-4" id="tacticsList">
+                @* Injected by JS *@
+            </div>
+        </div>
+
+        @* Weird Facts *@
+        <div class="kickoff-tab-panel" id="kpanel-facts">
+            <div class="kickoff-facts-grid" id="factsList">
+                @* Injected by JS *@
+            </div>
+        </div>
+
+        @* Head to Head *@
+        <div class="kickoff-tab-panel" id="kpanel-h2h">
+            <div class="kickoff-h2h" id="h2hContent">
+                @* Injected by JS *@
+            </div>
+        </div>
+    </div>
+
+    @* ---- All upcoming previews grid ---- *@
+    <h2 style="font-size:20px;margin-bottom:var(--space-4);">All Upcoming Matches</h2>
+    <div class="row g-4" id="kickoffGrid">
+        @* Injected by JS *@
+    </div>
+</div>

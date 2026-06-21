@@ -1,0 +1,65 @@
+﻿@{
+    ViewData["Title"] = "Jersey Marketplace";
+    ViewData["Page"] = "marketplace";
+}
+
+<div class="page-header">
+    <div>
+        <h1>Jersey Marketplace</h1>
+        <p class="subtitle">Fan-to-fan kit trading · <span id="listingCount">2,841</span> listings</p>
+    </div>
+    <div class="page-actions">
+        <div class="search-input">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+            <input type="text" id="marketSearchInput" placeholder="Search kits, teams, players..." oninput="filterListings(this.value)" />
+        </div>
+        <button class="btn btn-outline">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>
+            Filter
+        </button>
+        <button class="btn btn-primary">+ Sell a Kit</button>
+    </div>
+</div>
+
+<div style="padding: 0 var(--space-6) var(--space-8);">
+
+    @* ---- Filter chips ---- *@
+    <div class="filter-chips mb-4">
+        <span class="chip active" onclick="setMarketFilter(this,'all')">All Kits</span>
+        <span class="chip" onclick="setMarketFilter(this,'bnwt')">BNWT</span>
+        <span class="chip" onclick="setMarketFilter(this,'match')">Match Worn</span>
+        <span class="chip" onclick="setMarketFilter(this,'player')">Player Specific</span>
+        <span class="chip" onclick="setMarketFilter(this,'budget')">Under £100</span>
+        <span class="chip" onclick="setMarketFilter(this,'auth')">Authenticated</span>
+    </div>
+
+    @* ---- Listings grid ---- *@
+    <div class="row g-4" id="listingsGrid">
+        @* Injected by JS initMarketplace() *@
+    </div>
+</div>
+
+@* ---- Message seller modal ---- *@
+<div class="modal-backdrop" id="messageModal" onclick="closeMessageModal()">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h3 style="font-size:20px;">Message Seller</h3>
+            <button class="btn-close-modal" onclick="closeMessageModal()">✕</button>
+        </div>
+        <div class="modal-listing-preview" id="modalListingPreview">
+            <div class="modal-listing-img"></div>
+            <div>
+                <div class="fw-bold" id="modalListingTitle"></div>
+                <div class="text-secondary" style="font-size:13px;" id="modalListingMeta"></div>
+            </div>
+        </div>
+        <textarea class="form-input-wch market-textarea mt-4" id="messageText" placeholder="Hi! Is this still available? Would you accept..."></textarea>
+        <div class="d-flex gap-3 mt-4">
+            <button class="btn btn-ghost flex-grow-1" onclick="closeMessageModal()">Cancel</button>
+            <button class="btn btn-primary flex-grow-1" onclick="sendMessage()">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" /></svg>
+                Send Message
+            </button>
+        </div>
+    </div>
+</div>
