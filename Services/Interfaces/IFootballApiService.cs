@@ -1,9 +1,7 @@
-﻿using GoldenWhistle.Models;
+﻿// Services/Interfaces/IFootballApiService.cs
+namespace GoldenWhistle.Services.Interfaces;
 
-namespace GoldenWhistle.Services.Interfaces
+public interface IFootballApiService
 {
-    public interface IFootballApiService
-    {
-        Task<List<Match>> FetchAndSyncMatchesAsync();
-    }
+    Task<int> SyncLiveMatchesAsync();
 }

@@ -3,7 +3,7 @@
     public class League
     {
         public int Id { get; set; }
-        public int ApiLeagueId { get; set; }
+        public long ApiLeagueId { get; set; }
         public string Name { get; set; } = string.Empty;
         public string ShortName { get; set; } = string.Empty;
         public string Country { get; set; } = string.Empty;

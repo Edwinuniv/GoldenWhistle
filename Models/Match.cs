@@ -3,7 +3,7 @@
     public class Match
     {
         public int Id { get; set; }
-        public int ApiMatchId { get; set; }
+        public long ApiMatchId { get; set; }
 
         public int LeagueId { get; set; }
         public League League { get; set; } = null!;

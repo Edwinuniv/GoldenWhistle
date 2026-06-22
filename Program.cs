@@ -1,6 +1,9 @@
 using GoldenWhistle.Data;
 using GoldenWhistle.Hubs;
 using GoldenWhistle.Models;
+using GoldenWhistle.Models.Configuration;
+using GoldenWhistle.Services;
+using GoldenWhistle.Services.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,6 +15,11 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
+
+builder.Services.Configure<FootballApiOptions>(
+    builder.Configuration.GetSection(FootballApiOptions.SectionName));
+
+builder.Services.AddHttpClient<IFootballApiService, FootballApiService>();
 
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
