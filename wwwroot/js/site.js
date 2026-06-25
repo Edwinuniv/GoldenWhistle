@@ -1186,3 +1186,179 @@ function filterKickoff(query) {
 function formatTime(date) {
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
 }
+
+// ---------------------------------------------------------------
+// 15. TOPBAR — search, notifications, chat, profile menu
+// ---------------------------------------------------------------
+
+// ---- Global Search ----
+const SEARCH_DATA = [
+    { type: 'Team', label: 'Brazil', url: '/Data?team=brazil' },
+    { type: 'Team', label: 'Argentina', url: '/Data?team=argentina' },
+    { type: 'Team', label: 'France', url: '/Data?team=france' },
+    { type: 'Team', label: 'Spain', url: '/Data?team=spain' },
+    { type: 'Team', label: 'Germany', url: '/Data?team=germany' },
+    { type: 'Team', label: 'England', url: '/Data?team=england' },
+    { type: 'Team', label: 'Portugal', url: '/Data?team=portugal' },
+    { type: 'Player', label: 'Vinicius Jr.', url: '/Data?player=vinicius' },
+    { type: 'Player', label: 'Messi', url: '/Data?player=messi' },
+    { type: 'Player', label: 'Mbappé', url: '/Data?player=mbappe' },
+    { type: 'Player', label: 'Bellingham', url: '/Data?player=bellingham' },
+    { type: 'Page', label: 'Bracket Challenge', url: '/Bracket' },
+    { type: 'Page', label: 'Mood Map', url: '/Mood' },
+    { type: 'Page', label: 'Pub Finder', url: '/Pub' },
+    { type: 'Page', label: 'Data Visualizer', url: '/Data' },
+    { type: 'Page', label: 'Jersey Marketplace', url: '/Marketplace' },
+    { type: 'Page', label: 'What If Simulator', url: '/Simulator' },
+];
+
+function handleGlobalSearch(query) {
+    const dropdown = document.getElementById('searchDropdown');
+    if (!dropdown) return;
+
+    if (!query || query.length < 2) {
+        dropdown.classList.remove('visible');
+        dropdown.innerHTML = '';
+        return;
+    }
+
+    const q = query.toLowerCase();
+    const results = SEARCH_DATA.filter(item =>
+        item.label.toLowerCase().includes(q)
+    ).slice(0, 6);
+
+    if (results.length === 0) {
+        dropdown.innerHTML = `<div class="search-result-item" style="color:var(--text-tertiary);">No results found</div>`;
+    } else {
+        dropdown.innerHTML = results.map(r => `
+            <div class="search-result-item" onclick="window.location.href='${r.url}'">
+                <span>${r.label}</span>
+                <span class="search-result-type ms-auto">${r.type}</span>
+            </div>`).join('');
+    }
+    dropdown.classList.add('visible');
+}
+
+function showSearchDropdown() {
+    const input = document.getElementById('globalSearch');
+    if (input && input.value.length >= 2) handleGlobalSearch(input.value);
+}
+
+// Close search on outside click
+document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('topbarSearchWrap');
+    const dropdown = document.getElementById('searchDropdown');
+    if (wrap && dropdown && !wrap.contains(e.target)) {
+        dropdown.classList.remove('visible');
+    }
+});
+
+// ---- Notifications ----
+function toggleNotifications() {
+    const panel = document.getElementById('notifPanel');
+    const overlay = document.getElementById('panelOverlay');
+    const chatPanel = document.getElementById('chatPanel');
+    if (!panel) return;
+    chatPanel?.classList.remove('open');
+    panel.classList.toggle('open');
+    overlay?.classList.toggle('visible', panel.classList.contains('open'));
+    // Clear badge when opened
+    if (panel.classList.contains('open')) {
+        const badge = document.getElementById('notifBadge');
+        if (badge) badge.style.display = 'none';
+    }
+}
+
+// ---- Chat ----
+function toggleChat() {
+    const panel = document.getElementById('chatPanel');
+    const notifPanel = document.getElementById('notifPanel');
+    if (!panel) return;
+    notifPanel?.classList.remove('open');
+    panel.classList.toggle('open');
+    const badge = document.getElementById('chatBadge');
+    if (badge) badge.style.display = 'none';
+    // Focus input when opened
+    if (panel.classList.contains('open')) {
+        setTimeout(() => document.getElementById('chatInput')?.focus(), 300);
+    }
+}
+
+function sendChatMessage() {
+    const input = document.getElementById('chatInput');
+    const messages = document.getElementById('chatMessages');
+    if (!input || !messages || !input.value.trim()) return;
+
+    const userMsg = input.value.trim();
+    input.value = '';
+
+    // Add user message
+    messages.innerHTML += `
+        <div class="chat-msg user">
+            <div class="chat-bubble">${userMsg}</div>
+        </div>`;
+
+    // Typing indicator
+    const typingId = 'typing-' + Date.now();
+    messages.innerHTML += `
+        <div class="chat-msg bot" id="${typingId}">
+            <div class="chat-bubble" style="color:var(--text-tertiary);">Thinking...</div>
+        </div>`;
+    messages.scrollTop = messages.scrollHeight;
+
+    // AI response (TODO: replace with real AI API call)
+    setTimeout(() => {
+        const typing = document.getElementById(typingId);
+        const response = getAIResponse(userMsg);
+        if (typing) typing.outerHTML = `
+            <div class="chat-msg bot">
+                <div class="chat-bubble">${response}</div>
+            </div>`;
+        messages.scrollTop = messages.scrollHeight;
+    }, 800);
+}
+
+function getAIResponse(query) {
+    const q = query.toLowerCase();
+    if (q.includes('brazil') || q.includes('brasil'))
+        return '🇧🇷 Brazil are looking strong this tournament! 56% possession average and Vinicius Jr. has been unstoppable with 5 goals in 5 games.';
+    if (q.includes('messi'))
+        return '🐐 Messi has 3 goals and 4 assists this tournament. Argentina\'s talisman is in brilliant form at what could be his last World Cup.';
+    if (q.includes('bracket'))
+        return '🏆 Head to the Bracket page to make your predictions! You\'re currently ranked #4 globally with 2,540 points.';
+    if (q.includes('pub') || q.includes('bar'))
+        return '🍺 Check out the Pub Finder page — there are 4 venues near you showing the match tonight!';
+    if (q.includes('score') || q.includes('result'))
+        return '⚽ Latest: BRA 2–1 ARG (73\') · FRA vs ESP at 19:00 · GER vs ENG at 22:00';
+    return '🏟️ I can help you with match stats, team info, predictions, and more! Try asking about a specific team or player.';
+}
+
+// ---- Profile Menu ----
+function toggleProfileMenu() {
+    const menu = document.getElementById('profileMenu');
+    if (!menu) return;
+    menu.classList.toggle('visible');
+}
+
+// Close profile menu on outside click
+document.addEventListener('click', (e) => {
+    const avatar = document.querySelector('.topbar-avatar');
+    const menu = document.getElementById('profileMenu');
+    if (avatar && menu && !avatar.contains(e.target)) {
+        menu.classList.remove('visible');
+    }
+});
+
+function closeAllPanels() {
+    document.getElementById('notifPanel')?.classList.remove('open');
+    document.getElementById('chatPanel')?.classList.remove('open');
+    document.getElementById('panelOverlay')?.classList.remove('visible');
+}
+
+// ---- Homepage smooth scroll ----
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', e => {
+        const target = document.querySelector(a.getAttribute('href'));
+        if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth' }); }
+    });
+});

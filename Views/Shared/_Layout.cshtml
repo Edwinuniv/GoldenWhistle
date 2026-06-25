@@ -1,115 +1,228 @@
-﻿@* ===================================================================
-   _Layout.cshtml — WorldCupHub shared shell
-   Sidebar nav + Fan Pulse bar + main content slot
-   =================================================================== *@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>@ViewData["Title"] — WorldCupHub</title>
-
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="~/css/theme.css" asp-append-version="true" />
-
 </head>
 <body data-page="@(ViewData["Page"]?.ToString()?.ToLower() ?? "")">
-    <div class="app-shell">
 
-        @* ============== SIDEBAR ============== *@
-        <aside class="sidebar">
-
-            @* --- Logo --- *@
-            <div class="sidebar-logo">
-                <svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-13h-7l0-7z" /></svg>
-            </div>
-
-            @* --- Main nav --- *@
-            @{
-                var current = ViewContext.RouteData.Values["controller"]?.ToString();
-            }
-            <nav class="sidebar-nav">
-                <a class="nav-item @(current == "Home" ? "active" : "")" href="/">
-                    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
-                    Dashboard
+    @if (ViewData["Page"]?.ToString() == "home")
+    {
+        @* ============ PUBLIC LAYOUT (Homepage) ============ *@
+        <nav class="public-nav">
+            <div class="public-nav-left">
+                <a href="/" class="app-logo">
+                    <div class="app-logo-icon">
+                        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-13h-7z" /></svg>
+                    </div>
+                    <span class="app-logo-text">WorldCupHub</span>
                 </a>
-                <a class="nav-item @(current == "Bracket" ? "active" : "")" href="/Bracket">
-                    <svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4zM3 6h4v2a2 2 0 01-4 0V6zM17 6h4v2a2 2 0 01-4 0V6z" /></svg>
-                    Bracket
-                </a>
-                <a class="nav-item @(current == "Mood" ? "active" : "")" href="/Mood">
-                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" /></svg>
-                    Mood
-                </a>
-                <a class="nav-item @(current == "Pub" ? "active" : "")" href="/Pub">
-                    <svg viewBox="0 0 24 24"><path d="M12 21s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12z" /><circle cx="12" cy="9" r="2.5" /></svg>
-                    Pub
-                </a>
-                <a class="nav-item @(current == "Data" ? "active" : "")" href="/Data">
-                    <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
-                    Data
-                </a>
-                <a class="nav-item @(current == "Marketplace" ? "active" : "")" href="/Marketplace">
-                    <svg viewBox="0 0 24 24"><path d="M3 7h18l-1.5 12.5a2 2 0 01-2 1.5H6.5a2 2 0 01-2-1.5L3 7zM8 7V5a4 4 0 018 0v2" /></svg>
-                    Marketplace
-                </a>
-                <a class="nav-item @(current == "Simulator" ? "active" : "")" href="/Simulator">
-                    <svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-13h-7l0-7z" /></svg>
-                    What If
-                </a>
-            </nav>
-
-            @* --- Bottom: notifications + profile --- *@
-            <div class="sidebar-bottom">
-                @* Notification bell with red dot *@
-                <div class="sidebar-icon-btn" title="Notifications">
-                    <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" /></svg>
-                    <span class="notif-dot"></span>
+                <div class="public-nav-links">
+                    <a href="#about">About</a>
+                    <a href="#features">Features</a>
+                    <a href="#contact">Contact</a>
+                    <a href="#business">Business</a>
                 </div>
-
-                @* Settings gear *@
-                <div class="sidebar-icon-btn" title="Settings">
-                    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" /></svg>
-                </div>
-
-                @* Profile avatar — TODO: replace "M" with User.Identity?.Name[0] *@
-                <a href="/Profile" class="avatar-sm" title="Profile" style="text-decoration:none;">M</a>
             </div>
-
-        </aside>
-
-        @* ============== MAIN ============== *@
-        <div class="main-content">
-
-            @* ---- Fan Pulse live bar (SignalR updates these values) ---- *@
-            <div class="fan-pulse-bar" id="fanPulseBar">
-                <span class="fan-pulse-label">FAN PULSE</span>
-                <div class="fan-pulse-track">
-                    <div class="fan-pulse-seg ecstasy" id="segEcstasy" style="width:48%"></div>
-                    <div class="fan-pulse-seg anxious" id="segAnxious" style="width:31%"></div>
-                    <div class="fan-pulse-seg agony" id="segAgony" style="width:21%"></div>
-                </div>
-                <span class="fan-pulse-stat"><span class="dot ecstasy"></span>Ecstasy <span class="value ecstasy" id="pctEcstasy">48%</span></span>
-                <span class="fan-pulse-stat"><span class="dot anxious"></span>Anxious <span class="value anxious" id="pctAnxious">31%</span></span>
-                <span class="fan-pulse-stat"><span class="dot agony"></span>Agony <span class="value agony" id="pctAgony">21%</span></span>
-                <span class="live-tag"><span class="dot live"></span>LIVE <span id="voteCount">247,831</span> votes</span>
+            <div class="public-nav-right">
+                <a href="/Account/Login" class="btn btn-ghost" style="padding:8px 20px;">Log in</a>
+                <a href="/Account/Register" class="btn btn-primary" style="padding:8px 20px;">Get Started</a>
             </div>
+        </nav>
+        @RenderBody()
+    }
+    else
+    {
+        @* ============ APP LAYOUT (Dashboard + all inner pages) ============ *@
+        <div class="app-shell">
 
-            @* ---- Page content ---- *@
-            @RenderBody()
+            @* ---- Sidebar ---- *@
+            <aside class="sidebar">
+                <a href="/" class="sidebar-logo" title="WorldCupHub">
+                    <svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-13h-7z" /></svg>
+                </a>
+                @{
+                    var current = ViewContext.RouteData.Values["controller"]?.ToString();
+                }
+                <nav class="sidebar-nav">
+                    <a class="nav-item @(current == "Dashboard" ? "active" : "")" href="/Dashboard">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>
+                        Home
+                    </a>
+                    <a class="nav-item @(current == "Bracket" ? "active" : "")" href="/Bracket">
+                        <svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4zM3 6h4v2a2 2 0 01-4 0V6zM17 6h4v2a2 2 0 01-4 0V6z" /></svg>
+                        Bracket
+                    </a>
+                    <a class="nav-item @(current == "Mood" ? "active" : "")" href="/Mood">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" /></svg>
+                        Mood
+                    </a>
+                    <a class="nav-item @(current == "Pub" ? "active" : "")" href="/Pub">
+                        <svg viewBox="0 0 24 24"><path d="M12 21s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12z" /><circle cx="12" cy="9" r="2.5" /></svg>
+                        Pub
+                    </a>
+                    <a class="nav-item @(current == "Data" ? "active" : "")" href="/Data">
+                        <svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2" /></svg>
+                        Data
+                    </a>
+                    <a class="nav-item @(current == "Marketplace" ? "active" : "")" href="/Marketplace">
+                        <svg viewBox="0 0 24 24"><path d="M3 7h18l-1.5 12.5a2 2 0 01-2 1.5H6.5a2 2 0 01-2-1.5L3 7zM8 7V5a4 4 0 018 0v2" /></svg>
+                        Market
+                    </a>
+                    <a class="nav-item @(current == "Simulator" ? "active" : "")" href="/Simulator">
+                        <svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-13h-7z" /></svg>
+                        What If
+                    </a>
+                    <a class="nav-item @(current == "Kickoff" ? "active" : "")" href="/Kickoff">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 8v4l3 3" /></svg>
+                        Kickoff
+                    </a>
+                </nav>
+            </aside>
+
+            @* ---- Main ---- *@
+            <div class="main-content">
+
+                @* ---- Top bar ---- *@
+                <header class="topbar">
+                    <div class="fan-pulse-bar" id="fanPulseBar">
+                        <span class="fan-pulse-label">FAN PULSE</span>
+                        <div class="fan-pulse-track">
+                            <div class="fan-pulse-seg ecstasy" id="segEcstasy" style="width:48%"></div>
+                            <div class="fan-pulse-seg anxious" id="segAnxious" style="width:31%"></div>
+                            <div class="fan-pulse-seg agony" id="segAgony" style="width:21%"></div>
+                        </div>
+                        <span class="fan-pulse-stat"><span class="dot ecstasy"></span>Ecstasy <span class="value ecstasy" id="pctEcstasy">48%</span></span>
+                        <span class="fan-pulse-stat"><span class="dot anxious"></span>Anxious <span class="value anxious" id="pctAnxious">31%</span></span>
+                        <span class="fan-pulse-stat"><span class="dot agony"></span>Agony <span class="value agony" id="pctAgony">21%</span></span>
+                        <span class="live-tag"><span class="dot live"></span>LIVE <span id="voteCount">247,831</span></span>
+                    </div>
+
+                    <div class="topbar-right">
+                        @* Global search *@
+                        <div class="topbar-search" id="topbarSearchWrap">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+                            <input type="text" id="globalSearch" placeholder="Search teams, players..." autocomplete="off" oninput="handleGlobalSearch(this.value)" onfocus="showSearchDropdown()" />
+                            <div class="search-dropdown" id="searchDropdown"></div>
+                        </div>
+
+                        @* Notifications *@
+                        <div class="topbar-icon-btn" id="notifBtn" onclick="toggleNotifications()" title="Notifications">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" /></svg>
+                            <span class="topbar-badge" id="notifBadge">3</span>
+                        </div>
+
+                        @* Chat / AI *@
+                        <div class="topbar-icon-btn" id="chatBtn" onclick="toggleChat()" title="AI Assistant">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
+                            <span class="topbar-badge chat-badge" id="chatBadge" style="display:none;">1</span>
+                        </div>
+
+                        @* Profile *@
+                        <div class="topbar-avatar" onclick="toggleProfileMenu()" title="Profile">
+                            <span id="topbarInitial">@(User.Identity?.Name?.Substring(0, 1).ToUpper() ?? "U")</span>
+                            <div class="profile-menu" id="profileMenu">
+                                <div class="profile-menu-header">
+                                    <div class="fw-bold" id="menuUserName">@User.Identity?.Name</div>
+                                    <div class="text-secondary" style="font-size:12px;">Fan Account</div>
+                                </div>
+                                <a href="/Profile" class="profile-menu-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" /></svg>
+                                    My Profile
+                                </a>
+                                <a href="/Profile#tab-notifications" class="profile-menu-item">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /></svg>
+                                    Settings
+                                </a>
+                                <div class="profile-menu-divider"></div>
+                                <form asp-controller="Account" asp-action="Logout" method="post">
+                                    <button type="submit" class="profile-menu-item profile-menu-logout">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+                                        Log out
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                @RenderBody()
+            </div>
         </div>
-    </div>
+
+        @* ---- Notifications Panel ---- *@
+        <div class="side-panel" id="notifPanel">
+            <div class="side-panel-header">
+                <h3>Notifications</h3>
+                <button class="side-panel-close" onclick="toggleNotifications()">✕</button>
+            </div>
+            <div class="side-panel-body" id="notifList">
+                <div class="notif-item unread">
+                    <span class="dot live"></span>
+                    <div>
+                        <div class="fw-bold" style="font-size:14px;">⚽ GOAL — Vinicius Jr.</div>
+                        <div class="text-secondary" style="font-size:12px;">BRA 2–1 ARG · 73'</div>
+                        <div class="text-tertiary" style="font-size:11px;">2 min ago</div>
+                    </div>
+                </div>
+                <div class="notif-item unread">
+                    <span class="dot" style="background:var(--amber);"></span>
+                    <div>
+                        <div class="fw-bold" style="font-size:14px;">🏆 Leaderboard update</div>
+                        <div class="text-secondary" style="font-size:12px;">You moved up to #4 globally</div>
+                        <div class="text-tertiary" style="font-size:11px;">15 min ago</div>
+                    </div>
+                </div>
+                <div class="notif-item">
+                    <span class="dot" style="background:var(--green);"></span>
+                    <div>
+                        <div class="fw-bold" style="font-size:14px;">💬 New message</div>
+                        <div class="text-secondary" style="font-size:12px;">PampaKits replied to your offer</div>
+                        <div class="text-tertiary" style="font-size:11px;">1 hr ago</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ---- Chat / AI Panel ---- *@
+        <div class="chat-panel" id="chatPanel">
+            <div class="chat-panel-header">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="chat-ai-avatar">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h7l-1 8 11-13h-7z" /></svg>
+                    </div>
+                    <div>
+                        <div class="fw-bold" style="font-size:14px;">WCH Assistant</div>
+                        <div style="font-size:11px;color:var(--green);">● Online</div>
+                    </div>
+                </div>
+                <button class="side-panel-close" onclick="toggleChat()">✕</button>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="chat-msg bot">
+                    <div class="chat-bubble">Hey! I'm your WorldCupHub assistant 🏆 Ask me anything about matches, stats, or predictions!</div>
+                </div>
+            </div>
+            <div class="chat-input-row">
+                <input type="text" id="chatInput" class="chat-input" placeholder="Ask about a match, player..." onkeydown="if(event.key==='Enter') sendChatMessage()" />
+                <button class="chat-send-btn" onclick="sendChatMessage()">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" /></svg>
+                </button>
+            </div>
+        </div>
+        <div class="panel-overlay" id="panelOverlay" onclick="closeAllPanels()"></div>
+    }
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
-
-    @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
