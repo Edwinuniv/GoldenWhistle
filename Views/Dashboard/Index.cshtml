@@ -1,0 +1,217 @@
+﻿@{
+    ViewData["Title"] = "WorldCupHub — The Ultimate World Cup Fan Platform";
+    ViewData["Page"] = "home";
+}
+
+@* =====================================================================
+   PUBLIC HOMEPAGE — login, about, features, contact
+   ===================================================================== *@
+
+@* ---- Hero ---- *@
+<section class="hero-section">
+    <div class="hero-content">
+        <div class="hero-badge">
+            <span class="dot live"></span>
+            FIFA World Cup 2026 · Live Now
+        </div>
+        <h1 class="hero-title">
+            The Ultimate<br />
+            <span style="color:var(--green);">World Cup</span> Fan Platform
+        </h1>
+        <p class="hero-subtitle">
+            Live brackets, mood maps, pub finder, data viz, jersey marketplace and more.
+            Everything a football fan needs, in one place.
+        </p>
+        <div class="hero-actions">
+            <a href="/Account/Register" class="btn btn-primary btn-lg">Get Started Free</a>
+            <a href="/Account/Login" class="btn btn-outline btn-lg">Log In</a>
+        </div>
+        <div class="hero-social-login">
+            <span class="text-tertiary" style="font-size:13px;">Or continue with</span>
+            <a href="/Account/ExternalLogin?provider=Google" class="btn-social">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" /><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" /></svg>
+                Google
+            </a>
+        </div>
+    </div>
+    <div class="hero-visual">
+        <div class="hero-card-stack">
+            <div class="hero-card hero-card-1">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge badge-live"><span class="dot live"></span>LIVE</span>
+                    <span class="text-mono" style="font-size:11px;color:var(--text-tertiary);">73'</span>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <span class="fw-bold">🇧🇷 Brazil</span>
+                    <span class="fw-bold" style="color:var(--green);font-size:20px;">2–1</span>
+                    <span class="fw-bold">Argentina 🇦🇷</span>
+                </div>
+            </div>
+            <div class="hero-card hero-card-2">
+                <div class="eyebrow mb-2">Global Mood</div>
+                <div class="d-flex gap-2 align-items-center">
+                    <span style="font-size:20px;">🤩</span>
+                    <div style="flex:1;height:8px;background:var(--green);border-radius:99px;"></div>
+                    <span style="color:var(--green);font-weight:700;">48%</span>
+                </div>
+            </div>
+            <div class="hero-card hero-card-3">
+                <div class="eyebrow mb-2">Your Rank</div>
+                <div style="font-size:32px;font-weight:800;color:var(--gold-bright);">#4</div>
+                <div class="text-secondary" style="font-size:12px;">of 12,441 players</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* ---- Features ---- *@
+<section class="features-section" id="features">
+    <div class="features-container">
+        <div class="text-center mb-5">
+            <h2 class="features-title">Everything for the <span style="color:var(--green);">Ultimate Fan</span></h2>
+            <p class="text-secondary">7 powerful modules, built for football lovers</p>
+        </div>
+        <div class="row g-4">
+            @{
+                var features = new[] {
+                    new { Icon = "🏆", Title = "Bracket Challenge",   Desc = "Predict match winners, earn points, climb leaderboards in private leagues with upset multipliers.", Color = "var(--green)" },
+                    new { Icon = "😭", Title = "Real-Time Mood Map",  Desc = "Vote your emotion live — Ecstasy, Anxiety, or Agony. See what 250K fans feel right now.", Color = "var(--amber)" },
+                    new { Icon = "⚡", Title = "Kickoff Companion",   Desc = "30-second match previews with injuries, tactics, and weird historical facts before every game.", Color = "var(--blue)" },
+                    new { Icon = "🗺️", Title = "Pub Finder",          Desc = "Crowdsourced map of bars and fan zones near you. Ratings, screens, and live capacity.", Color = "var(--green)" },
+                    new { Icon = "📊", Title = "Data Visualizer",     Desc = "xG charts, possession flow, heat maps, and neutral AI summaries. Beyond the scoreline.", Color = "var(--amber)" },
+                    new { Icon = "👕", Title = "Jersey Marketplace",  Desc = "Fan-to-fan jersey trading with scam detection, seller ratings, and direct messaging.", Color = "var(--red)" },
+                    new { Icon = "🔀", Title = "\"What If?\" Simulator", Desc = "Change past results and see the alternate bracket history. AI generates the narrative.", Color = "var(--blue)" },
+                };
+            }
+            @foreach (var f in features)
+            {
+                <div class="col-md-4 col-lg-3">
+                    <div class="feature-card">
+                        <div class="feature-icon" style="color:@f.Color;">@f.Icon</div>
+                        <h3 class="feature-title">@f.Title</h3>
+                        <p class="feature-desc">@f.Desc</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+@* ---- About ---- *@
+<section class="about-section" id="about">
+    <div class="about-container">
+        <div class="row align-items-center g-5">
+            <div class="col-md-6">
+                <h2 style="font-size:36px;font-weight:800;margin-bottom:16px;">Built by fans, <span style="color:var(--green);">for fans</span></h2>
+                <p class="text-secondary" style="font-size:16px;line-height:1.8;margin-bottom:16px;">
+                    WorldCupHub was created to bring the World Cup experience to life beyond just watching. We combine live data, community emotion, and smart analytics in one platform.
+                </p>
+                <p class="text-secondary" style="font-size:16px;line-height:1.8;">
+                    Whether you're predicting brackets, finding a pub to watch, or trading jerseys — WorldCupHub is your home base for 2026.
+                </p>
+            </div>
+            <div class="col-md-6">
+                <div class="row g-3">
+                    <div class="col-6"><div class="about-stat"><div class="about-stat-val" style="color:var(--green);">250K+</div><div class="about-stat-label">Active Fans</div></div></div>
+                    <div class="col-6"><div class="about-stat"><div class="about-stat-val" style="color:var(--amber);">7</div><div class="about-stat-label">Modules</div></div></div>
+                    <div class="col-6"><div class="about-stat"><div class="about-stat-val" style="color:var(--blue);">48</div><div class="about-stat-label">Countries</div></div></div>
+                    <div class="col-6"><div class="about-stat"><div class="about-stat-val" style="color:var(--red);">Live</div><div class="about-stat-label">Real-Time Data</div></div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* ---- Contact ---- *@
+<section class="contact-section" id="contact">
+    <div class="contact-container">
+        <div class="text-center mb-5">
+            <h2 style="font-size:36px;font-weight:800;">Get in <span style="color:var(--green);">Touch</span></h2>
+            <p class="text-secondary">Questions, partnerships, press inquiries</p>
+        </div>
+        <div class="row g-4 justify-content-center">
+            <div class="col-md-5">
+                <div class="panel">
+                    <div class="d-flex flex-column gap-3">
+                        <div>
+                            <label class="form-label-wch">Your Name</label>
+                            <input class="form-input-wch" type="text" placeholder="Marcus Thiel" />
+                        </div>
+                        <div>
+                            <label class="form-label-wch">Email</label>
+                            <input class="form-input-wch" type="email" placeholder="marcus@email.com" />
+                        </div>
+                        <div>
+                            <label class="form-label-wch">Subject</label>
+                            <select class="form-input-wch">
+                                <option>General question</option>
+                                <option>Business inquiry</option>
+                                <option>Press / Media</option>
+                                <option>Bug report</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label-wch">Message</label>
+                            <textarea class="form-input-wch" style="height:120px;resize:none;" placeholder="Your message..."></textarea>
+                        </div>
+                        <button class="btn btn-primary">Send Message</button>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="d-flex flex-column gap-4">
+                    <div class="contact-info-card" id="business">
+                        <div class="contact-info-icon">🏢</div>
+                        <h3 style="font-size:18px;margin-bottom:8px;">Business</h3>
+                        <p class="text-secondary" style="font-size:14px;">Partner with us for sponsorships, API access, or enterprise features.</p>
+                        <a href="mailto:business@worldcuphub.com" style="color:var(--green);font-size:14px;">business@worldcuphub.com</a>
+                    </div>
+                    <div class="contact-info-card">
+                        <div class="contact-info-icon">📰</div>
+                        <h3 style="font-size:18px;margin-bottom:8px;">Press</h3>
+                        <p class="text-secondary" style="font-size:14px;">Media kit, interviews, and press releases available on request.</p>
+                        <a href="mailto:press@worldcuphub.com" style="color:var(--green);font-size:14px;">press@worldcuphub.com</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+@* ---- Footer ---- *@
+<footer class="public-footer">
+    <div class="footer-container">
+        <div class="footer-brand">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <div class="app-logo-icon" style="width:32px;height:32px;">
+                    <svg viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 11-13h-7z" /></svg>
+                </div>
+                <span style="font-weight:800;font-size:18px;">WorldCupHub</span>
+            </div>
+            <p class="text-secondary" style="font-size:13px;">The ultimate World Cup fan platform.</p>
+        </div>
+        <div class="footer-links">
+            <div>
+                <div class="footer-link-title">Product</div>
+                <a href="#features">Features</a>
+                <a href="/Account/Register">Sign Up</a>
+                <a href="/Account/Login">Log In</a>
+            </div>
+            <div>
+                <div class="footer-link-title">Company</div>
+                <a href="#about">About</a>
+                <a href="#business">Business</a>
+                <a href="#contact">Contact</a>
+            </div>
+            <div>
+                <div class="footer-link-title">Legal</div>
+                <a href="#">Privacy Policy</a>
+                <a href="#">Terms of Service</a>
+                <a href="#">Cookie Policy</a>
+            </div>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <span class="text-tertiary" style="font-size:12px;">© 2026 WorldCupHub. Not affiliated with FIFA.</span>
+    </div>
+</footer>
