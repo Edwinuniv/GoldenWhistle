@@ -1,5 +1,5 @@
 ﻿/* ===================================================================
-   site.js — WorldCupHub · Dev B · ALL JS IN ONE FILE
+   site.js — GoldenWhistle · Dev B · ALL JS IN ONE FILE
    Contains: Chart defaults, shared helpers, SignalR stub,
              Dashboard logic, Bracket logic, Mood logic
    =================================================================== */

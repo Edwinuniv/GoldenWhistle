@@ -15,6 +15,12 @@ namespace GoldenWhistle.Data
         public DbSet<Match> Matches { get; set; }
         public DbSet<Team> Teams { get; set; }
         public DbSet<League> Leagues { get; set; }
+        public DbSet<BracketPick> BracketPicks { get; set; }
+        public DbSet<PrivateLeague> PrivateLeagues { get; set; }
+        public DbSet<LeagueMember> LeagueMembers { get; set; }
+        public DbSet<MatchStats> MatchStats { get; set; }
+
+
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -31,6 +37,12 @@ namespace GoldenWhistle.Data
                 .WithMany()
                 .HasForeignKey(m => m.AwayTeamId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<MatchStats>()
+                .HasOne(s => s.Match)
+                .WithOne()
+                .HasForeignKey<MatchStats>(s => s.MatchId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

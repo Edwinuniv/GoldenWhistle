@@ -13,11 +13,18 @@ public class SyncController : ControllerBase
 {
     private readonly ApplicationDbContext _db;
     private readonly IFootballApiService _footballApiService;
+    private readonly IBracketScoringService _scoringService;
     private readonly ILogger<SyncController> _logger;
 
-    public SyncController(IFootballApiService footballApiService, ILogger<SyncController> logger)
+    public SyncController(
+        ApplicationDbContext db,
+        IFootballApiService footballApiService,
+        IBracketScoringService scoringService,
+        ILogger<SyncController> logger)
     {
+        _db = db;
         _footballApiService = footballApiService;
+        _scoringService = scoringService;
         _logger = logger;
     }
 
@@ -27,8 +34,12 @@ public class SyncController : ControllerBase
         try
         {
             _logger.LogInformation("Sync triggered manually.");
-            var count = await _footballApiService.SyncLiveMatchesAsync();
-            return Ok(new { message = $"Synced {count} live matches successfully." });
+            var matchCount = await _footballApiService.SyncLiveMatchesAsync();
+            var scoredCount = await _scoringService.ScoreFinishedMatchesAsync();
+            return Ok(new
+            {
+                message = $"Synced {matchCount} live matches, scored {scoredCount} picks."
+            });
         }
         catch (Exception ex)
         {
@@ -36,14 +47,13 @@ public class SyncController : ControllerBase
             return StatusCode(500, new { error = ex.Message });
         }
     }
+
     [HttpGet("testvote")]
     public async Task<IActionResult> TestVote()
     {
-        // Get the first match in the DB
         var match = await _db.Matches.FirstOrDefaultAsync();
         if (match is null) return NotFound("No matches found.");
 
-        // Force a vote via the hub
         var hubContext = HttpContext.RequestServices.GetRequiredService<IHubContext<MoodMapHub>>();
         await hubContext.Clients.All.SendAsync("ReceiveTallies", new
         {

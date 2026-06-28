@@ -25,7 +25,6 @@ namespace GoldenWhistle.Controllers
 
         public async Task<IActionResult> Index()
         {
-            // Get the current live match
             var liveMatch = await _db.Matches
                 .Include(m => m.HomeTeam)
                 .Include(m => m.AwayTeam)
@@ -33,7 +32,6 @@ namespace GoldenWhistle.Controllers
 
             if (liveMatch == null)
             {
-                // Fallback to next upcoming match
                 liveMatch = await _db.Matches
                     .Include(m => m.HomeTeam)
                     .Include(m => m.AwayTeam)
@@ -44,7 +42,6 @@ namespace GoldenWhistle.Controllers
 
             if (liveMatch == null) return View(new MoodViewModel());
 
-            // Get all votes for this match
             var votes = await _db.MoodVotes
                 .Where(v => v.MatchId == liveMatch.Id)
                 .ToListAsync();
@@ -54,11 +51,9 @@ namespace GoldenWhistle.Controllers
             var anxietyCount = votes.Count(v => v.Mood == MoodType.Anxiety);
             var agonyCount = votes.Count(v => v.Mood == MoodType.Agony);
 
-            // Current user's vote
             var userId = _userManager.GetUserId(User);
             var userVote = votes.FirstOrDefault(v => v.UserId == userId);
 
-            // Timeline: group votes by 15-min intervals
             var timeline = votes
                 .GroupBy(v => (int)((v.VotedAt - liveMatch.KickoffUtc).TotalMinutes / 15) * 15)
                 .OrderBy(g => g.Key)
@@ -99,45 +94,61 @@ namespace GoldenWhistle.Controllers
             var userId = _userManager.GetUserId(User);
             if (userId == null) return Unauthorized();
 
-            // Parse mood type
             if (!Enum.TryParse<MoodType>(request.Mood, true, out var moodType))
                 return BadRequest("Invalid mood type. Use: Ecstasy, Anxiety, Agony");
 
-            // Remove existing vote for this match
+            var match = await _db.Matches.FirstOrDefaultAsync(m => m.Id == request.MatchId);
+            if (match == null) return NotFound("Match not found.");
+
             var existing = await _db.MoodVotes
                 .FirstOrDefaultAsync(v => v.MatchId == request.MatchId && v.UserId == userId);
 
-            if (existing != null) _db.MoodVotes.Remove(existing);
-
-            // Add new vote
-            _db.MoodVotes.Add(new MoodVote
+            if (existing is null)
             {
-                MatchId = request.MatchId,
-                UserId = userId,
-                Mood = moodType,
-                VotedAt = DateTime.UtcNow
-            });
+                _db.MoodVotes.Add(new MoodVote
+                {
+                    MatchId = request.MatchId,
+                    UserId = userId,
+                    Mood = moodType,
+                    VotedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                existing.Mood = moodType;
+                existing.VotedAt = DateTime.UtcNow;
+            }
 
             await _db.SaveChangesAsync();
 
-            // Recalculate percentages
             var votes = await _db.MoodVotes.Where(v => v.MatchId == request.MatchId).ToListAsync();
             var total = votes.Count;
-            var ecstasy = total > 0 ? (int)Math.Round(votes.Count(v => v.Mood == MoodType.Ecstasy) * 100.0 / total) : 0;
-            var anxiety = total > 0 ? (int)Math.Round(votes.Count(v => v.Mood == MoodType.Anxiety) * 100.0 / total) : 0;
-            var agony = total > 0 ? (int)Math.Round(votes.Count(v => v.Mood == MoodType.Agony) * 100.0 / total) : 0;
+            var ecstasy = votes.Count(v => v.Mood == MoodType.Ecstasy);
+            var agony = votes.Count(v => v.Mood == MoodType.Agony);
+            var anxiety = votes.Count(v => v.Mood == MoodType.Anxiety);
 
-            // Push update to ALL connected clients via SignalR
-            await _moodHub.Clients.All.SendAsync("ReceiveMoodUpdate",
-                request.MatchId, moodType.ToString(), ecstasy, agony, anxiety);
+            await _moodHub.Clients.All.SendAsync("ReceiveTallies", new
+            {
+                apiMatchId = match.ApiMatchId,
+                ecstasy,
+                agony,
+                anxiety,
+                total
+            });
 
-            return Ok(new { ecstasyPct = ecstasy, anxietyPct = anxiety, agonyPct = agony, totalVotes = total });
+            return Ok(new
+            {
+                ecstasyPct = total > 0 ? (int)Math.Round(ecstasy * 100.0 / total) : 0,
+                anxietyPct = total > 0 ? (int)Math.Round(anxiety * 100.0 / total) : 0,
+                agonyPct = total > 0 ? (int)Math.Round(agony * 100.0 / total) : 0,
+                totalVotes = total
+            });
         }
-    }
 
-    public class VoteRequest
-    {
-        public int MatchId { get; set; }
-        public string Mood { get; set; } = string.Empty;
+        public class VoteRequest
+        {
+            public int MatchId { get; set; }
+            public string Mood { get; set; } = string.Empty;
+        }
     }
 }

@@ -21,6 +21,24 @@ builder.Services.Configure<FootballApiOptions>(
 
 builder.Services.AddHttpClient<IFootballApiService, FootballApiService>();
 
+// ===== GOOGLE AUTHENTICATION =====
+var googleClientId = builder.Configuration["Authentication:Google:ClientId"];
+if (!string.IsNullOrEmpty(googleClientId))
+{
+    builder.Services.AddAuthentication()
+        .AddGoogle(options =>
+        {
+            options.ClientId = googleClientId;
+            options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"]!;
+        });
+}
+// =================================
+
+// ===== CUSTOM SERVICE REGISTRATIONS =====
+builder.Services.AddScoped<IBracketScoringService, BracketScoringService>();
+builder.Services.AddScoped<IPrivateLeagueService, PrivateLeagueService>();
+// =========================================
+
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
 
