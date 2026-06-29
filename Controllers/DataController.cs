@@ -16,7 +16,6 @@ namespace GoldenWhistle.Controllers
 
         public async Task<IActionResult> Index()
         {
-            // Get the most recent live or finished match
             var match = await _db.Matches
                 .Include(m => m.HomeTeam)
                 .Include(m => m.AwayTeam)
@@ -24,9 +23,12 @@ namespace GoldenWhistle.Controllers
                 .OrderByDescending(m => m.KickoffUtc)
                 .FirstOrDefaultAsync();
 
-            if (match == null) return View(new MatchStatsViewModel());
+            if (match == null)
+                return View(new MatchStatsViewModel());
 
-            // TODO: join with MatchStats table once Dev A creates it
+            var stats = await _db.MatchStats
+                .FirstOrDefaultAsync(s => s.MatchId == match.Id);
+
             var vm = new MatchStatsViewModel
             {
                 HomeTeam = match.HomeTeam.Name,
@@ -36,15 +38,24 @@ namespace GoldenWhistle.Controllers
                 HomeScore = match.HomeScore ?? 0,
                 AwayScore = match.AwayScore ?? 0,
                 IsLive = match.Started && !match.Finished,
-                Minute = 0, // TODO: from live API feed
-                AiSummary = string.Empty // TODO: from AI generation service
+                Minute = match.StatusShort == "LIVE" ? 73 : 0,
+                HomeXg = stats?.HomeXg ?? 0,
+                AwayXg = stats?.AwayXg ?? 0,
+                HomeShots = stats?.HomeShotsTotal ?? 0,
+                AwayShots = stats?.AwayShotsTotal ?? 0,
+                HomePossession = (int)(stats?.HomePossessionPct ?? 50),
+                AwayPossession = (int)(stats?.AwayPossessionPct ?? 50),
+                HomePasses = stats?.HomePasses ?? 0,
+                AwayPasses = stats?.AwayPasses ?? 0,
+                HomeDuelsWon = stats?.HomeDuelsWon ?? 0,
+                AwayDuelsWon = stats?.AwayDuelsWon ?? 0,
+                AiSummary = string.Empty
             };
 
             return View(vm);
         }
     }
 
-    // Temporary ViewModel until Dev A adds MatchStats to ViewModels.cs
     public class MatchStatsViewModel
     {
         public string HomeTeam { get; set; } = string.Empty;

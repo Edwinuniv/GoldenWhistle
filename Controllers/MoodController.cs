@@ -16,7 +16,10 @@ namespace GoldenWhistle.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IHubContext<MoodMapHub> _moodHub;
 
-        public MoodController(ApplicationDbContext db, UserManager<ApplicationUser> userManager, IHubContext<MoodMapHub> moodHub)
+        public MoodController(
+            ApplicationDbContext db,
+            UserManager<ApplicationUser> userManager,
+            IHubContext<MoodMapHub> moodHub)
         {
             _db = db;
             _userManager = userManager;
@@ -35,12 +38,13 @@ namespace GoldenWhistle.Controllers
                 liveMatch = await _db.Matches
                     .Include(m => m.HomeTeam)
                     .Include(m => m.AwayTeam)
-                    .Where(m => !m.Started)
+                    .Where(m => !m.Started && !m.Cancelled)
                     .OrderBy(m => m.KickoffUtc)
                     .FirstOrDefaultAsync();
             }
 
-            if (liveMatch == null) return View(new MoodViewModel());
+            if (liveMatch == null)
+                return View(new MoodViewModel());
 
             var votes = await _db.MoodVotes
                 .Where(v => v.MatchId == liveMatch.Id)
@@ -52,7 +56,12 @@ namespace GoldenWhistle.Controllers
             var agonyCount = votes.Count(v => v.Mood == MoodType.Agony);
 
             var userId = _userManager.GetUserId(User);
-            var userVote = votes.FirstOrDefault(v => v.UserId == userId);
+            string? currentUserVote = null;
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var userVote = votes.FirstOrDefault(v => v.UserId == userId);
+                currentUserVote = userVote?.Mood.ToString();
+            }
 
             var timeline = votes
                 .GroupBy(v => (int)((v.VotedAt - liveMatch.KickoffUtc).TotalMinutes / 15) * 15)
@@ -79,7 +88,7 @@ namespace GoldenWhistle.Controllers
                 EcstasyPct = totalVotes > 0 ? (int)Math.Round(ecstasyCount * 100.0 / totalVotes) : 0,
                 AnxietyPct = totalVotes > 0 ? (int)Math.Round(anxietyCount * 100.0 / totalVotes) : 0,
                 AgonyPct = totalVotes > 0 ? (int)Math.Round(agonyCount * 100.0 / totalVotes) : 0,
-                CurrentUserVote = userVote?.Mood.ToString(),
+                CurrentUserVote = currentUserVote,
                 Timeline = timeline
             };
 

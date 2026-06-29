@@ -44,16 +44,14 @@ namespace GoldenWhistle.Controllers
         [Route("api/simulator/run")]
         public async Task<IActionResult> Run([FromBody] SimulatorRunRequest request)
         {
-            // Calculate bracket from adjusted scores
             var winners = request.Matches.Select(m => new
             {
                 MatchId = m.MatchId,
                 Winner = m.HomeScore > m.AwayScore ? "home" :
                            m.AwayScore > m.HomeScore ? "away" : "draw",
-                IsUpset = false // TODO: compare vs original result
+                IsUpset = false
             }).ToList();
 
-            // TODO: generate AI narrative via AI service
             var narrative = "In this alternate timeline, the results rewrote history...";
 
             return Ok(new

@@ -20,24 +20,39 @@ namespace GoldenWhistle.Controllers
 
         public async Task<IActionResult> Index()
         {
+            var userId = _userManager.GetUserId(User) ?? string.Empty;
+
             var matches = await _db.Matches
                 .Include(m => m.HomeTeam)
                 .Include(m => m.AwayTeam)
                 .OrderBy(m => m.KickoffUtc)
                 .ToListAsync();
 
-            var liveEvents = await _db.Matches
-                .Include(m => m.HomeTeam)
-                .Include(m => m.AwayTeam)
-                .Where(m => m.Started && !m.Finished)
-                .ToListAsync();
+            // Récupérer les picks de l'utilisateur pour savoir lesquels il a prédits
+            var userPicks = await _db.BracketPicks
+                .Where(p => p.UserId == userId)
+                .ToDictionaryAsync(p => p.MatchId, p => p);
+
+            // Récupérer la ligue privée de l'utilisateur
+            var leagueName = "My League";
+            var userLeague = await _db.LeagueMembers
+                .Where(lm => lm.UserId == userId)
+                .Include(lm => lm.League)
+                .FirstOrDefaultAsync();
+
+            if (userLeague != null)
+                leagueName = userLeague.League.Name;
+
+            // Calculer les stats
+            var scoredPicks = userPicks.Values.Where(p => p.IsScored).ToList();
+            var totalCorrect = scoredPicks.Count(p => p.PointsAwarded > 0);
+            var totalPending = matches.Count(m => !m.Finished && !m.Cancelled);
 
             var vm = new BracketViewModel
             {
-                TotalCorrect = 0, // TODO: from BracketPicks table
-                TotalPending = 0, // TODO: from BracketPicks table
-                LeagueName = "My League", // TODO: from PrivateLeagues table
-
+                TotalCorrect = totalCorrect,
+                TotalPending = totalPending,
+                LeagueName = leagueName,
                 Picks = matches.Select(m => new BracketMatchViewModel
                 {
                     Round = GetRound(m.StatusShort),
@@ -50,23 +65,50 @@ namespace GoldenWhistle.Controllers
                     KickoffTime = m.KickoffUtc.ToLocalTime().ToString("HH:mm"),
                     IsLive = m.Started && !m.Finished,
                     IsWinner = m.Finished && m.HomeScore > m.AwayScore
+                    // ❌ UserPick supprimé car n'existe pas dans le ViewModel
                 }).ToList(),
+                LeagueStandings = await GetLeagueStandingsAsync(userId),
+                LiveEvents = new List<LiveEventViewModel>()
+            };
 
-                LeagueStandings = await _db.Users
+            return View(vm);
+        }
+
+        private async Task<List<LeagueStandingViewModel>> GetLeagueStandingsAsync(string userId)
+        {
+            var userLeague = await _db.LeagueMembers
+                .Where(lm => lm.UserId == userId)
+                .Select(lm => lm.PrivateLeagueId)
+                .FirstOrDefaultAsync();
+
+            if (userLeague == 0)
+            {
+                return await _db.Users
                     .OrderByDescending(u => u.TotalPoints)
                     .Take(10)
                     .Select((u, i) => new LeagueStandingViewModel
                     {
                         Rank = i + 1,
                         UserName = u.DisplayName ?? u.UserName ?? "Fan",
-                        CorrectPicks = 0, // TODO: from BracketPicks
+                        // ❌ CorrectPicks supprimé car n'existe pas
                         Points = u.TotalPoints
-                    }).ToListAsync(),
+                    }).ToListAsync();
+            }
 
-                LiveEvents = new List<LiveEventViewModel>() // TODO: from live match events
-            };
+            var members = await _db.LeagueMembers
+                .Where(lm => lm.PrivateLeagueId == userLeague)
+                .Include(lm => lm.User)
+                .ToListAsync();
 
-            return View(vm);
+            return members
+                .OrderByDescending(m => m.User.TotalPoints)
+                .Select((m, i) => new LeagueStandingViewModel
+                {
+                    Rank = i + 1,
+                    UserName = m.User.DisplayName ?? m.User.UserName ?? "Fan",
+
+                    Points = m.User.TotalPoints
+                }).ToList();
         }
 
         private static string GetRound(string statusShort) => statusShort switch

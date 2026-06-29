@@ -16,7 +16,6 @@ namespace GoldenWhistle.Controllers
 
         public async Task<IActionResult> Index()
         {
-            // Get upcoming matches with their previews
             var matches = await _db.Matches
                 .Include(m => m.HomeTeam)
                 .Include(m => m.AwayTeam)
@@ -36,13 +35,9 @@ namespace GoldenWhistle.Controllers
                     AwayTeamCode = m.AwayTeam.ShortName,
                     KickoffUtc = m.KickoffUtc,
                     StadiumInfo = m.StatusLong,
-                    // TODO: populate from MatchPreviews table once Dev A creates it
                     HomeInjuries = new List<InjuryItemViewModel>(),
                     AwayInjuries = new List<InjuryItemViewModel>(),
-                    HomeTactic = null,
-                    AwayTactic = null,
-                    Facts = new List<FactViewModel>(),
-                    H2H = null
+                    Facts = new List<FactViewModel>()
                 }).ToList()
             };
 

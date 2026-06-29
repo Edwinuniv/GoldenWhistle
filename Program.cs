@@ -38,7 +38,8 @@ if (!string.IsNullOrEmpty(googleClientId))
 builder.Services.AddScoped<IBracketScoringService, BracketScoringService>();
 builder.Services.AddScoped<IPrivateLeagueService, PrivateLeagueService>();
 // =========================================
-
+builder.Services.AddScoped<IChatService, GeminiChatService>();
+builder.Services.AddControllers();
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
 

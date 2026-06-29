@@ -23,8 +23,10 @@ namespace GoldenWhistle.Controllers
         public async Task<IActionResult> Index()
         {
             var user = await _userManager.GetUserAsync(User);
+            var userId = _userManager.GetUserId(User) ?? string.Empty;
             var today = DateTime.UtcNow.Date;
 
+            // ─── Fixtures du jour ──────────────────────────────────────
             var fixtures = await _db.Matches
                 .Include(m => m.HomeTeam)
                 .Include(m => m.AwayTeam)
@@ -33,31 +35,70 @@ namespace GoldenWhistle.Controllers
                 .Take(4)
                 .ToListAsync();
 
+            // ─── Top 3 leaders ────────────────────────────────────────
             var topLeaders = await _db.Users
                 .OrderByDescending(u => u.TotalPoints)
                 .Take(3)
                 .ToListAsync();
 
+            // ─── Bracket matches ──────────────────────────────────────
+            var bracketMatches = await _db.Matches
+                .Include(m => m.HomeTeam)
+                .Include(m => m.AwayTeam)
+                .Where(m => m.Started || m.Finished)
+                .OrderBy(m => m.KickoffUtc)
+                .ToListAsync();
+
+            // ─── xG data ──────────────────────────────────────────────
+            var matchStats = await _db.MatchStats
+                .Include(s => s.Match)
+                    .ThenInclude(m => m.HomeTeam)
+                .Include(s => s.Match)
+                    .ThenInclude(m => m.AwayTeam)
+                .Where(s => s.Match.Started || s.Match.Finished)
+                .OrderByDescending(s => s.FetchedAt)
+                .Take(10)
+                .ToListAsync();
+
+            // ─── Mood votes ────────────────────────────────────────────
             var liveMatch = fixtures.FirstOrDefault(m => m.Started && !m.Finished);
             int ecstasyPct = 0, anxietyPct = 0, agonyPct = 0, totalVotes = 0;
 
             if (liveMatch != null)
             {
-                var votes = await _db.MoodVotes.Where(v => v.MatchId == liveMatch.Id).ToListAsync();
+                var votes = await _db.MoodVotes
+                    .Where(v => v.MatchId == liveMatch.Id)
+                    .ToListAsync();
                 totalVotes = votes.Count;
-                ecstasyPct = totalVotes > 0 ? (int)Math.Round(votes.Count(v => v.Mood == MoodType.Ecstasy) * 100.0 / totalVotes) : 0;
-                anxietyPct = totalVotes > 0 ? (int)Math.Round(votes.Count(v => v.Mood == MoodType.Anxiety) * 100.0 / totalVotes) : 0;
-                agonyPct = totalVotes > 0 ? (int)Math.Round(votes.Count(v => v.Mood == MoodType.Agony) * 100.0 / totalVotes) : 0;
+                ecstasyPct = totalVotes > 0
+                    ? (int)Math.Round(votes.Count(v => v.Mood == MoodType.Ecstasy) * 100.0 / totalVotes)
+                    : 0;
+                anxietyPct = totalVotes > 0
+                    ? (int)Math.Round(votes.Count(v => v.Mood == MoodType.Anxiety) * 100.0 / totalVotes)
+                    : 0;
+                agonyPct = totalVotes > 0
+                    ? (int)Math.Round(votes.Count(v => v.Mood == MoodType.Agony) * 100.0 / totalVotes)
+                    : 0;
             }
+
+            // ─── User picks stats ──────────────────────────────────────
+            var userPicks = await _db.BracketPicks
+                .Where(p => p.UserId == userId && p.IsScored)
+                .ToListAsync();
+
+            var totalPicks = userPicks.Count;
+            var correctPicks = userPicks.Count(p => p.PointsAwarded > 0);
 
             var vm = new DashboardViewModel
             {
                 UserDisplayName = user?.DisplayName ?? user?.UserName ?? "Fan",
                 UserTotalPoints = user?.TotalPoints ?? 0,
                 UserPointsDeltaToday = 0,
-                UserPredictionsMade = 0,
-                UserAccuracyPct = 0,
-                UserBracketRank = 0,
+                UserPredictionsMade = totalPicks,
+                UserAccuracyPct = totalPicks > 0
+                    ? (int)Math.Round(correctPicks * 100.0 / totalPicks)
+                    : 0,
+                UserBracketRank = await GetUserRankAsync(userId),
                 TotalPlayers = await _db.Users.CountAsync(),
 
                 Fixtures = fixtures.Select(m => new FixtureCardViewModel
@@ -83,15 +124,65 @@ namespace GoldenWhistle.Controllers
                     PointsDelta = 0
                 }).ToList(),
 
+                BracketMatches = bracketMatches.Select(m => new BracketMatchViewModel
+                {
+                    Round = GetRound(m.StatusShort),
+                    HomeTeamCode = m.HomeTeam.ShortName,
+                    HomeTeamName = m.HomeTeam.Name,
+                    AwayTeamCode = m.AwayTeam.ShortName,
+                    AwayTeamName = m.AwayTeam.Name,
+                    HomeScore = m.HomeScore,
+                    AwayScore = m.AwayScore,
+                    KickoffTime = m.KickoffUtc.ToLocalTime().ToString("HH:mm"),
+                    IsLive = m.Started && !m.Finished,
+                    IsWinner = m.Finished && m.HomeScore > m.AwayScore
+                }).ToList(),
+
+                XgByMatch = matchStats.Select(s => new XgDataPoint
+                {
+                    MatchLabel = $"{s.Match.HomeTeam.ShortName} vs {s.Match.AwayTeam.ShortName}",
+                    XgValue = s.HomeXg ?? 0
+                }).ToList(),
+
                 MoodEcstasyPct = ecstasyPct,
                 MoodAnxietyPct = anxietyPct,
                 MoodAgonyPct = agonyPct,
-                MoodTotalVotes = totalVotes,
-                XgByMatch = new List<XgDataPoint>(),
-                BracketMatches = new List<BracketMatchViewModel>()
+                MoodTotalVotes = totalVotes
             };
 
             return View(vm);
         }
+
+        private async Task<int> GetUserRankAsync(string userId)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(userId))
+                    return 0;
+
+                var users = await _db.Users
+                    .OrderByDescending(u => u.TotalPoints)
+                    .Select(u => u.Id)
+                    .ToListAsync();
+
+                if (users.Count == 0)
+                    return 0;
+
+                var rank = users.IndexOf(userId) + 1;
+                return rank > 0 ? rank : 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private static string GetRound(string statusShort) => statusShort switch
+        {
+            "QF" => "QF",
+            "SF" => "SF",
+            "F" => "FINAL",
+            _ => "QF"
+        };
     }
 }

@@ -1284,7 +1284,8 @@ function toggleChat() {
     }
 }
 
-function sendChatMessage() {
+// ✅ MODIFIED - Now uses Gemini API
+async function sendChatMessage() {
     const input = document.getElementById('chatInput');
     const messages = document.getElementById('chatMessages');
     if (!input || !messages || !input.value.trim()) return;
@@ -1295,43 +1296,64 @@ function sendChatMessage() {
     // Add user message
     messages.innerHTML += `
         <div class="chat-msg user">
-            <div class="chat-bubble">${userMsg}</div>
-        </div>`;
-
-    // Typing indicator
-    const typingId = 'typing-' + Date.now();
-    messages.innerHTML += `
-        <div class="chat-msg bot" id="${typingId}">
-            <div class="chat-bubble" style="color:var(--text-tertiary);">Thinking...</div>
+            <div class="chat-bubble">${escapeHtml(userMsg)}</div>
         </div>`;
     messages.scrollTop = messages.scrollHeight;
 
-    // AI response (TODO: replace with real AI API call)
-    setTimeout(() => {
+    // "Thinking" message
+    const typingId = 'typing-' + Date.now();
+    messages.innerHTML += `
+        <div class="chat-msg bot" id="${typingId}">
+            <div class="chat-bubble" style="color:var(--text-tertiary);">⏳ Thinking...</div>
+        </div>`;
+    messages.scrollTop = messages.scrollHeight;
+
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: userMsg })
+        });
+
+        const data = await response.json();
+
+        // Remove "thinking" message
         const typing = document.getElementById(typingId);
-        const response = getAIResponse(userMsg);
-        if (typing) typing.outerHTML = `
+        if (typing) typing.remove();
+
+        // Add the response
+        messages.innerHTML += `
             <div class="chat-msg bot">
-                <div class="chat-bubble">${response}</div>
+                <div class="chat-bubble">${escapeHtml(data.reply)}</div>
             </div>`;
         messages.scrollTop = messages.scrollHeight;
-    }, 800);
+
+    } catch (error) {
+        const typing = document.getElementById(typingId);
+        if (typing) typing.remove();
+
+        messages.innerHTML += `
+            <div class="chat-msg bot">
+                <div class="chat-bubble" style="background:var(--red-bg);color:var(--red);">
+                    ❌ Sorry, an error occurred. Please try again later.
+                </div>
+            </div>`;
+        messages.scrollTop = messages.scrollHeight;
+    }
 }
 
-function getAIResponse(query) {
-    const q = query.toLowerCase();
-    if (q.includes('brazil') || q.includes('brasil'))
-        return '🇧🇷 Brazil are looking strong this tournament! 56% possession average and Vinicius Jr. has been unstoppable with 5 goals in 5 games.';
-    if (q.includes('messi'))
-        return '🐐 Messi has 3 goals and 4 assists this tournament. Argentina\'s talisman is in brilliant form at what could be his last World Cup.';
-    if (q.includes('bracket'))
-        return '🏆 Head to the Bracket page to make your predictions! You\'re currently ranked #4 globally with 2,540 points.';
-    if (q.includes('pub') || q.includes('bar'))
-        return '🍺 Check out the Pub Finder page — there are 4 venues near you showing the match tonight!';
-    if (q.includes('score') || q.includes('result'))
-        return '⚽ Latest: BRA 2–1 ARG (73\') · FRA vs ESP at 19:00 · GER vs ENG at 22:00';
-    return '🏟️ I can help you with match stats, team info, predictions, and more! Try asking about a specific team or player.';
+// ✅ NEW - Helper to escape HTML
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
+
+// ⚠️ REMOVE or REPLACE the old getAIResponse() function
+// The old getAIResponse() is no longer needed since we use Gemini API.
+// You can delete it or comment it out.
+
+
 
 // ---- Profile Menu ----
 function toggleProfileMenu() {
