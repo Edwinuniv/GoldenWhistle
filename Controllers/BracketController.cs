@@ -28,12 +28,10 @@ namespace GoldenWhistle.Controllers
                 .OrderBy(m => m.KickoffUtc)
                 .ToListAsync();
 
-            // Récupérer les picks de l'utilisateur pour savoir lesquels il a prédits
             var userPicks = await _db.BracketPicks
                 .Where(p => p.UserId == userId)
                 .ToDictionaryAsync(p => p.MatchId, p => p);
 
-            // Récupérer la ligue privée de l'utilisateur
             var leagueName = "My League";
             var userLeague = await _db.LeagueMembers
                 .Where(lm => lm.UserId == userId)
@@ -43,7 +41,6 @@ namespace GoldenWhistle.Controllers
             if (userLeague != null)
                 leagueName = userLeague.League.Name;
 
-            // Calculer les stats
             var scoredPicks = userPicks.Values.Where(p => p.IsScored).ToList();
             var totalCorrect = scoredPicks.Count(p => p.PointsAwarded > 0);
             var totalPending = matches.Count(m => !m.Finished && !m.Cancelled);
@@ -65,7 +62,6 @@ namespace GoldenWhistle.Controllers
                     KickoffTime = m.KickoffUtc.ToLocalTime().ToString("HH:mm"),
                     IsLive = m.Started && !m.Finished,
                     IsWinner = m.Finished && m.HomeScore > m.AwayScore
-                    // ❌ UserPick supprimé car n'existe pas dans le ViewModel
                 }).ToList(),
                 LeagueStandings = await GetLeagueStandingsAsync(userId),
                 LiveEvents = new List<LiveEventViewModel>()
@@ -74,6 +70,7 @@ namespace GoldenWhistle.Controllers
             return View(vm);
         }
 
+        // ✅ CORRIGÉ
         private async Task<List<LeagueStandingViewModel>> GetLeagueStandingsAsync(string userId)
         {
             var userLeague = await _db.LeagueMembers
@@ -83,16 +80,20 @@ namespace GoldenWhistle.Controllers
 
             if (userLeague == 0)
             {
-                return await _db.Users
+                // Récupérer les données d'abord
+                var users = await _db.Users
                     .OrderByDescending(u => u.TotalPoints)
                     .Take(10)
+                    .ToListAsync();
+
+                // Calculer le rang en mémoire
+                return users
                     .Select((u, i) => new LeagueStandingViewModel
                     {
                         Rank = i + 1,
                         UserName = u.DisplayName ?? u.UserName ?? "Fan",
-                        // ❌ CorrectPicks supprimé car n'existe pas
                         Points = u.TotalPoints
-                    }).ToListAsync();
+                    }).ToList();
             }
 
             var members = await _db.LeagueMembers
@@ -100,13 +101,13 @@ namespace GoldenWhistle.Controllers
                 .Include(lm => lm.User)
                 .ToListAsync();
 
+            // Trier et calculer le rang en mémoire
             return members
                 .OrderByDescending(m => m.User.TotalPoints)
                 .Select((m, i) => new LeagueStandingViewModel
                 {
                     Rank = i + 1,
                     UserName = m.User.DisplayName ?? m.User.UserName ?? "Fan",
-
                     Points = m.User.TotalPoints
                 }).ToList();
         }

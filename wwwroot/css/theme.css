@@ -276,43 +276,43 @@ h1, h2, h3, h4 {
 }
 
 /* ===================================================================
-   Fan Pulse top bar
+   FAN PULSE BAR — compact, all on one line, LIVE next to stats
    =================================================================== */
 
 .fan-pulse-bar {
     display: flex;
     align-items: center;
-    gap: var(--space-5);
-    padding: var(--space-3) var(--space-6);
+    gap: 12px;
+    padding: 4px 16px;
     background: var(--bg-panel);
-    border-bottom: 1px solid var(--border-subtle);
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    flex-wrap: wrap;
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+    flex-wrap: nowrap;
+    min-height: 36px;
 }
 
 .fan-pulse-label {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    letter-spacing: 0.12em;
-    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
     white-space: nowrap;
 }
 
 .fan-pulse-track {
-    flex: 1 1 240px;
-    min-width: 160px;
-    height: 8px;
-    border-radius: var(--radius-full);
-    overflow: hidden;
     display: flex;
-    background: var(--bg-pill);
+    height: 5px;
+    width: 80px;
+    border-radius: 99px;
+    overflow: hidden;
+    background: var(--bg-subtle);
+    flex-shrink: 0;
 }
 
 .fan-pulse-seg {
     height: 100%;
-    transition: width 0.6s ease;
+    transition: width 0.5s ease;
 }
 
     .fan-pulse-seg.ecstasy {
@@ -330,72 +330,107 @@ h1, h2, h3, h4 {
 .fan-pulse-stat {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 14px;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
     white-space: nowrap;
 }
 
-.dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    display: inline-block;
-}
-
-    .dot.ecstasy {
-        background: var(--green);
+    .fan-pulse-stat .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
     }
 
-    .dot.anxious {
-        background: var(--amber);
+        .fan-pulse-stat .dot.ecstasy {
+            background: var(--green);
+        }
+
+        .fan-pulse-stat .dot.anxious {
+            background: var(--amber);
+        }
+
+        .fan-pulse-stat .dot.agony {
+            background: var(--red);
+        }
+
+    .fan-pulse-stat .value {
+        font-weight: 600;
     }
 
-    .dot.agony {
-        background: var(--red);
-    }
+        .fan-pulse-stat .value.ecstasy {
+            color: var(--green);
+        }
 
-    .dot.live {
-        background: var(--red);
-        box-shadow: 0 0 8px var(--red);
-        animation: pulse-dot 1.4s infinite;
-    }
+        .fan-pulse-stat .value.anxious {
+            color: var(--amber);
+        }
 
-.fan-pulse-stat .value.ecstasy {
-    color: var(--green);
-    font-weight: 700;
-}
+        .fan-pulse-stat .value.agony {
+            color: var(--red);
+        }
 
-.fan-pulse-stat .value.anxious {
-    color: var(--amber);
-    font-weight: 700;
-}
-
-.fan-pulse-stat .value.agony {
-    color: var(--red);
-    font-weight: 700;
-}
-
+/* LIVE tag — next to stats, not below */
 .live-tag {
     display: flex;
     align-items: center;
-    gap: 6px;
-    color: var(--red);
+    gap: 4px;
+    font-size: 10px;
     font-weight: 700;
-    font-size: 13px;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
+    color: var(--red);
+    text-transform: uppercase;
+    white-space: nowrap;
     margin-left: auto;
 }
+
+    .live-tag .dot.live {
+        width: 6px;
+        height: 6px;
+        background: var(--red);
+        border-radius: 50%;
+        animation: pulse-dot 1.2s ease-in-out infinite;
+    }
 
 @keyframes pulse-dot {
     0%, 100% {
         opacity: 1;
+        transform: scale(1);
     }
 
     50% {
-        opacity: 0.35;
+        opacity: 0.4;
+        transform: scale(0.8);
     }
 }
 
+/* Responsive: stack on mobile */
+@media (max-width: 768px) {
+    .fan-pulse-bar {
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 4px 12px;
+        min-height: auto;
+    }
+
+    .fan-pulse-track {
+        width: 60px;
+    }
+
+    .fan-pulse-stat {
+        font-size: 10px;
+    }
+
+    .fan-pulse-label {
+        font-size: 9px;
+    }
+
+    .live-tag {
+        margin-left: 0;
+        font-size: 9px;
+    }
+}
 /* ===================================================================
    Page header
    =================================================================== */
@@ -881,116 +916,7 @@ h1, h2, h3, h4 {
     }
 }
 
-/* ===================================================================
-   MOOD MAP PAGE
-   =================================================================== */
-.emotion-btn {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    width: 100%;
-    background: var(--bg-panel-raised);
-    border: 1px solid var(--border-card);
-    border-radius: var(--radius-md);
-    padding: 18px 20px;
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
-    text-align: left;
-    color: var(--text-primary);
-}
 
-    .emotion-btn:hover {
-        border-color: var(--border-active);
-        background: var(--green-bg);
-    }
-
-    .emotion-btn.selected-ecstasy {
-        border-color: var(--green);
-        background: var(--green-bg-strong);
-    }
-
-    .emotion-btn.selected-anxious {
-        border-color: var(--border-gold);
-        background: var(--amber-bg-strong);
-    }
-
-    .emotion-btn.selected-agony {
-        border-color: rgba(255,77,109,0.5);
-        background: var(--red-bg);
-    }
-
-.emotion-emoji {
-    font-size: 32px;
-    line-height: 1;
-}
-
-.emotion-name {
-    font-size: 18px;
-    font-weight: 700;
-}
-
-.emotion-sub {
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-top: 2px;
-}
-
-.emotion-pct {
-    margin-left: auto;
-    text-align: right;
-}
-
-    .emotion-pct .pct-value {
-        font-size: 22px;
-        font-weight: 800;
-    }
-
-    .emotion-pct .pct-fans {
-        font-size: 13px;
-        color: var(--text-secondary);
-    }
-
-.emotion-checkmark {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--green);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.2s;
-    flex-shrink: 0;
-}
-
-    .emotion-checkmark svg {
-        width: 14px;
-        height: 14px;
-    }
-
-.emotion-btn.selected-ecstasy .emotion-checkmark,
-.emotion-btn.selected-anxious .emotion-checkmark,
-.emotion-btn.selected-agony .emotion-checkmark {
-    opacity: 1;
-}
-
-.thanks-msg {
-    text-align: center;
-    font-size: 14px;
-    color: var(--text-secondary);
-    margin-top: 16px;
-    opacity: 0;
-    transition: opacity 0.4s;
-}
-
-    .thanks-msg.visible {
-        opacity: 1;
-    }
-
-    .thanks-msg span {
-        color: var(--green);
-        font-weight: 700;
-    }
 
 /* ===================================================================
    PUB FINDER PAGE
@@ -1358,77 +1284,6 @@ h1, h2, h3, h4 {
     background: rgba(255,77,109,0.04);
 }
 
-/* ===================================================================
-   MOOD PAGE — additional classes
-   =================================================================== */
-.doughnut-wrap {
-    max-width: 300px;
-    margin: 0 auto;
-    position: relative;
-}
-
-.doughnut-center {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    text-align: center;
-    pointer-events: none;
-}
-
-.doughnut-emoji {
-    font-size: 28px;
-}
-
-.doughnut-label {
-    font-size: 13px;
-    margin-top: 4px;
-}
-
-.mood-question {
-    font-size: 26px;
-    margin-bottom: 6px;
-}
-
-.mood-legend-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.mood-legend-bar-wrap {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 55%;
-}
-
-.mood-legend-pct {
-    width: 36px;
-    text-align: right;
-}
-
-.mood-bar-track {
-    flex: 1;
-    height: 6px;
-    background: var(--bg-pill);
-    border-radius: 99px;
-    overflow: hidden;
-}
-
-.mood-bar-fill {
-    height: 100%;
-    border-radius: 99px;
-    transition: width 0.5s;
-}
-
-.emotion-checkmark-amber {
-    background: var(--amber) !important;
-}
-
-.emotion-checkmark-red {
-    background: var(--red) !important;
-}
 
 /* ===================================================================
    PROFILE PAGE — additional classes
@@ -3336,4 +3191,519 @@ h1, h2, h3, h4 {
 
 .main-content {
     margin-left: 68px;
+}
+
+/* ============================================================
+   MOOD PAGE
+   ============================================================ */
+
+/* Fan Pulse Bar - Compact */
+.fan-pulse-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 16px;
+    background: var(--bg-panel);
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle);
+    flex-wrap: wrap;
+}
+
+.fan-pulse-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+}
+
+.fan-pulse-track {
+    display: flex;
+    height: 6px;
+    width: 100px;
+    border-radius: 99px;
+    overflow: hidden;
+    background: var(--bg-subtle);
+}
+
+.fan-pulse-seg {
+    height: 100%;
+    transition: width 0.5s ease;
+}
+
+    .fan-pulse-seg.ecstasy {
+        background: var(--green);
+    }
+
+    .fan-pulse-seg.anxious {
+        background: var(--amber);
+    }
+
+    .fan-pulse-seg.agony {
+        background: var(--red);
+    }
+
+.fan-pulse-stat {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+    .fan-pulse-stat .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+        .fan-pulse-stat .dot.ecstasy {
+            background: var(--green);
+        }
+
+        .fan-pulse-stat .dot.anxious {
+            background: var(--amber);
+        }
+
+        .fan-pulse-stat .dot.agony {
+            background: var(--red);
+        }
+
+    .fan-pulse-stat .value {
+        font-weight: 600;
+    }
+
+        .fan-pulse-stat .value.ecstasy {
+            color: var(--green);
+        }
+
+        .fan-pulse-stat .value.anxious {
+            color: var(--amber);
+        }
+
+        .fan-pulse-stat .value.agony {
+            color: var(--red);
+        }
+
+.live-tag {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--red);
+    text-transform: uppercase;
+    margin-left: auto;
+}
+
+    .live-tag .dot.live {
+        width: 6px;
+        height: 6px;
+        background: var(--red);
+        border-radius: 50%;
+        animation: pulse-dot 1.2s ease-in-out infinite;
+    }
+
+@keyframes pulse-dot {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.4;
+        transform: scale(0.8);
+    }
+}
+
+/* Mood Page */
+.mood-page-content {
+    padding: 0 var(--space-6) var(--space-6);
+}
+
+.mood-question {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: var(--text-primary);
+}
+
+.mood-match-info {
+    color: var(--text-secondary);
+    margin-bottom: 16px;
+    font-size: 14px;
+}
+
+/* Doughnut */
+.doughnut-wrap {
+    position: relative;
+    max-width: 240px;
+    margin: 0 auto;
+}
+
+.doughnut-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    pointer-events: none;
+}
+
+.doughnut-emoji {
+    font-size: 32px;
+    line-height: 1;
+}
+
+.doughnut-label {
+    font-size: 11px;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+}
+
+/* Mood Legend */
+.mood-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 2px 0;
+}
+
+.mood-legend-bar-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mood-legend-pct {
+    min-width: 36px;
+    text-align: right;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.mood-bar-track {
+    flex: 1;
+    height: 5px;
+    background: var(--bg-subtle);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.mood-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.5s ease;
+}
+
+/* Live Voting Header */
+.live-voting-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.live-voting-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 12px;
+    border-radius: 20px;
+    background: var(--red);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+    .live-voting-badge .dot.live {
+        width: 5px;
+        height: 5px;
+        background: #fff;
+        border-radius: 50%;
+        animation: pulse-dot 1.2s ease-in-out infinite;
+    }
+
+.live-voting-count {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+/* Emotion Buttons */
+.emotion-btn {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 2px solid var(--border-subtle);
+    background: var(--bg-panel);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+    text-align: left;
+    position: relative;
+}
+
+    .emotion-btn:hover {
+        border-color: var(--text-secondary);
+        background: var(--bg-subtle);
+    }
+
+.emotion-emoji {
+    font-size: 24px;
+    line-height: 1;
+}
+
+.emotion-name {
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.emotion-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.emotion-pct {
+    margin-left: auto;
+    text-align: right;
+    min-width: 70px;
+}
+
+.pct-value {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.pct-fans {
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+
+.emotion-checkmark {
+    display: none;
+    margin-left: 4px;
+}
+
+    .emotion-checkmark svg {
+        width: 18px;
+        height: 18px;
+    }
+
+/* Selected States */
+.emotion-btn.selected-ecstasy {
+    border-color: var(--green);
+    background: rgba(0, 255, 135, 0.08);
+}
+
+    .emotion-btn.selected-ecstasy .emotion-checkmark {
+        display: block;
+    }
+
+.emotion-btn.selected-anxious {
+    border-color: var(--amber);
+    background: rgba(255, 183, 0, 0.08);
+}
+
+    .emotion-btn.selected-anxious .emotion-checkmark-amber {
+        display: block;
+    }
+
+.emotion-btn.selected-agony {
+    border-color: var(--red);
+    background: rgba(255, 77, 109, 0.08);
+}
+
+    .emotion-btn.selected-agony .emotion-checkmark-red {
+        display: block;
+    }
+
+.emotion-checkmark-amber,
+.emotion-checkmark-red {
+    display: none;
+    margin-left: 4px;
+}
+
+    .emotion-checkmark-amber svg,
+    .emotion-checkmark-red svg {
+        width: 18px;
+        height: 18px;
+    }
+
+/* Thanks Message */
+.thanks-msg {
+    display: none;
+    margin-top: 12px;
+    padding: 10px 16px;
+    background: var(--green-bg);
+    border-radius: 8px;
+    border: 1px solid rgba(0, 255, 135, 0.2);
+    color: var(--green);
+    font-weight: 500;
+    font-size: 13px;
+    text-align: center;
+}
+
+    .thanks-msg.visible {
+        display: block;
+    }
+
+    .thanks-msg span {
+        font-weight: 400;
+        color: var(--text-secondary);
+    }
+
+/* Mood Match Selector */
+.mood-match-selector {
+    margin-bottom: 16px;
+}
+
+    .mood-match-selector select {
+        background: var(--bg-panel);
+        color: var(--text-primary);
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+        padding: 8px 12px;
+        width: 100%;
+        max-width: 300px;
+    }
+
+/* Mood Timeline */
+.chart-wrap {
+    position: relative;
+    width: 100%;
+}
+
+/* ============================================================
+   PROFILE PAGE
+   ============================================================ */
+.profile-container {
+    padding: 0 var(--space-6) var(--space-8);
+}
+
+.profile-avatar-large {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--green-bg);
+    color: var(--green);
+    font-size: 32px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+}
+
+.stat-card {
+    background: var(--bg-panel);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    border: 1px solid var(--border-subtle);
+}
+
+    .stat-card .stat-value {
+        font-size: 28px;
+        font-weight: 800;
+        color: var(--text-primary);
+    }
+
+    .stat-card .stat-label {
+        font-size: 13px;
+        color: var(--text-tertiary);
+    }
+
+/* ============================================================
+   SETTINGS PAGE
+   ============================================================ */
+.settings-container {
+    padding: 0 var(--space-6) var(--space-8);
+}
+
+    .settings-container .form-control {
+        background: var(--bg-panel);
+        border: 1px solid var(--border-subtle);
+        color: var(--text-primary);
+        padding: 8px 12px;
+        border-radius: 8px;
+        width: 100%;
+    }
+
+        .settings-container .form-control:focus {
+            outline: none;
+            border-color: var(--green);
+        }
+
+    .settings-container .form-check-input {
+        background-color: var(--bg-subtle);
+        border-color: var(--border-subtle);
+    }
+
+        .settings-container .form-check-input:checked {
+            background-color: var(--green);
+            border-color: var(--green);
+        }
+
+    .settings-container .form-check-label {
+        color: var(--text-secondary);
+    }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+    .fan-pulse-bar {
+        gap: 8px;
+        padding: 4px 12px;
+    }
+
+    .fan-pulse-track {
+        width: 60px;
+    }
+
+    .fan-pulse-stat {
+        font-size: 10px;
+    }
+
+    .fan-pulse-label {
+        font-size: 9px;
+    }
+
+    .mood-question {
+        font-size: 20px;
+    }
+
+    .emotion-btn {
+        padding: 10px 14px;
+        gap: 10px;
+    }
+
+    .emotion-emoji {
+        font-size: 20px;
+    }
+
+    .emotion-pct {
+        min-width: 50px;
+    }
+
+    .pct-value {
+        font-size: 15px;
+    }
+
+    .doughnut-wrap {
+        max-width: 160px;
+    }
+
+    .live-voting-badge {
+        font-size: 9px;
+        padding: 2px 10px;
+    }
 }

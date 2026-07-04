@@ -39,7 +39,7 @@
     }
     else
     {
-        @* ============ APP LAYOUT (Dashboard + all inner pages) ============ *@
+        @* ============ APP LAYOUT ============ *@
         <div class="app-shell">
 
             @* ---- Sidebar ---- *@
@@ -105,26 +105,22 @@
                     </div>
 
                     <div class="topbar-right">
-                        @* Global search *@
                         <div class="topbar-search" id="topbarSearchWrap">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
                             <input type="text" id="globalSearch" placeholder="Search teams, players..." autocomplete="off" oninput="handleGlobalSearch(this.value)" onfocus="showSearchDropdown()" />
                             <div class="search-dropdown" id="searchDropdown"></div>
                         </div>
 
-                        @* Notifications *@
                         <div class="topbar-icon-btn" id="notifBtn" onclick="toggleNotifications()" title="Notifications">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" /></svg>
                             <span class="topbar-badge" id="notifBadge">3</span>
                         </div>
 
-                        @* Chat / AI *@
                         <div class="topbar-icon-btn" id="chatBtn" onclick="toggleChat()" title="AI Assistant">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" /></svg>
                             <span class="topbar-badge chat-badge" id="chatBadge" style="display:none;">1</span>
                         </div>
 
-                        @* Profile *@
                         <div class="topbar-avatar" onclick="toggleProfileMenu()" title="Profile">
                             <span id="topbarInitial">@(User.Identity?.Name?.Substring(0, 1).ToUpper() ?? "U")</span>
                             <div class="profile-menu" id="profileMenu">
@@ -136,7 +132,7 @@
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" /></svg>
                                     My Profile
                                 </a>
-                                <a href="/Profile#tab-notifications" class="profile-menu-item">
+                                <a href="/Profile/Settings" class="profile-menu-item">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /></svg>
                                     Settings
                                 </a>
@@ -223,7 +219,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.7/dist/browser/signalr.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
-    <script src="~/js/site.js" asp-append-version="true"></script>
-    @await RenderSectionAsync("Scripts", required: false)   @* ← ADD THIS *@
+    @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

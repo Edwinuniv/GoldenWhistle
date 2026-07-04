@@ -15,6 +15,7 @@ namespace GoldenWhistle.Controllers
             _userManager = userManager;
         }
 
+        // GET: /Profile (My Profile - public view)
         public async Task<IActionResult> Index()
         {
             var user = await _userManager.GetUserAsync(User);
@@ -22,6 +23,15 @@ namespace GoldenWhistle.Controllers
             return View(user);
         }
 
+        // GET: /Profile/Settings (Settings - private view)
+        public async Task<IActionResult> Settings()
+        {
+            var user = await _userManager.GetUserAsync(User);
+            if (user == null) return RedirectToAction("Login", "Account");
+            return View(user);
+        }
+
+        // POST: /Profile/Update
         [HttpPost]
         public async Task<IActionResult> Update(string displayName, string country)
         {
@@ -33,7 +43,7 @@ namespace GoldenWhistle.Controllers
             await _userManager.UpdateAsync(user);
 
             TempData["Success"] = "Profile updated!";
-            return RedirectToAction("Index");
+            return RedirectToAction("Settings");
         }
     }
 }

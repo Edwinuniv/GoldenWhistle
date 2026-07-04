@@ -11,7 +11,7 @@
     </div>
     <div class="search-input">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-        <input type="text" placeholder="Search teams, players..." />
+        <input type="text" placeholder="Search teams, players..." id="dashboardSearch" />
     </div>
 </div>
 
@@ -76,13 +76,14 @@
                     </span>
                     @foreach (var m in Model.BracketMatches.Where(x => x.Round == round))
                     {
+                        var homeWin = m.HomeScore.HasValue && m.AwayScore.HasValue && m.HomeScore > m.AwayScore;
                         <div class="card @(m.IsWinner ? "is-active" : "") mb-2">
                             <div class="d-flex justify-content-between">
                                 <span>
                                     <span class="text-tertiary me-2" style="font-size:11px;">@m.HomeTeamCode</span>
                                     @m.HomeTeamName
                                 </span>
-                                <strong @(m.IsWinner ? "style=color:var(--green)" : "")>
+                                <strong style="color: @(homeWin ? "var(--green)" : "var(--text-primary)")">
                                     @(m.HomeScore?.ToString() ?? "—")
                                 </strong>
                             </div>
@@ -91,7 +92,9 @@
                                     <span class="text-tertiary me-2" style="font-size:11px;">@m.AwayTeamCode</span>
                                     @m.AwayTeamName
                                 </span>
-                                <strong>@(m.AwayScore?.ToString() ?? "—")</strong>
+                                <strong style="color: @(homeWin ? "var(--text-primary)" : "var(--green)")">
+                                    @(m.AwayScore?.ToString() ?? "—")
+                                </strong>
                             </div>
                         </div>
                     }

@@ -1,16 +1,8 @@
-﻿@{
+﻿@model GoldenWhistle.ViewModels.BracketViewModel
+@{
     ViewData["Title"] = "Bracket Challenge";
     ViewData["Page"] = "bracket";
 }
-
-@* =====================================================================
-   BRACKET CHALLENGE — matches Figma reference images 3, 4, 5
-   Sections: header w/ actions, Your Bracket (QF/SF/Final tree),
-             Private League standings, Live Updates feed
-   TODO (Dev A): replace static bracket + league data with
-   BracketViewModel from PrivateLeagueController (M1 backend).
-   SignalR: LeaderboardHub should push live league rank changes here.
-   ===================================================================== *@
 
 <div class="page-header">
     <div>
@@ -18,142 +10,120 @@
         <p class="subtitle">Predict match outcomes and earn points</p>
     </div>
     <div class="page-actions">
-        <a href="#" class="btn btn-outline">Share Bracket</a>
-        <a href="#" class="btn btn-primary">Lock Predictions</a>
+        <button class="btn btn-outline" data-action="share-bracket">Share Bracket</button>
+        <button class="btn btn-primary" data-action="lock-predictions">Lock Predictions</button>
     </div>
 </div>
 
 <div class="content-grid">
-
-    @* ---------------- Your Bracket (tree) ---------------- *@
     <div class="panel">
         <div class="section-header">
             <div>
                 <h3 style="font-size:22px;">Your Bracket</h3>
-                <p class="text-secondary" style="font-size:14px;margin-top:4px;">Quarterfinals · 4 of 8 correct</p>
+                <p class="text-secondary" style="font-size:14px;margin-top:4px;">
+                    @Model.TotalCorrect of @(Model.Picks.Count) correct
+                </p>
             </div>
             <div class="d-flex gap-2">
-                <span class="badge badge-success">14 Correct</span>
-                <span class="badge badge-upcoming">2 Pending</span>
+                <span class="badge badge-success">@Model.TotalCorrect Correct</span>
+                <span class="badge badge-upcoming">@Model.TotalPending Pending</span>
             </div>
         </div>
 
         <div class="row g-4 mt-2">
-            @* --- QF column --- *@
             <div class="col-md-4">
                 <span class="section-title d-block mb-2">QF</span>
-
-                <div class="card is-active mb-3">
-                    <div class="d-flex justify-content-between">
-                        <span><span class="text-tertiary me-2" style="font-size:11px;">BR</span><strong>Brazil</strong></span>
-                        <strong style="color:var(--green)">2</strong>
+                @foreach (var pick in Model.Picks.Where(p => p.Round == "QF"))
+                {
+                    var homeWin = pick.HomeScore.HasValue && pick.AwayScore.HasValue && pick.HomeScore > pick.AwayScore;
+                    var awayWin = pick.HomeScore.HasValue && pick.AwayScore.HasValue && pick.AwayScore > pick.HomeScore;
+                    var draw = pick.HomeScore.HasValue && pick.AwayScore.HasValue && pick.HomeScore == pick.AwayScore;
+                    <div class="card @(homeWin ? "is-active" : "") mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span><span class="text-tertiary me-2" style="font-size:11px;">@pick.HomeTeamCode</span><strong>@pick.HomeTeamName</strong></span>
+                            <strong style="color: @(homeWin ? "var(--green)" : draw ? "var(--amber)" : "var(--text-primary)")">
+                                @(pick.HomeScore?.ToString() ?? "—")
+                            </strong>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1">
+                            <span><span class="text-tertiary me-2" style="font-size:11px;">@pick.AwayTeamCode</span>@pick.AwayTeamName</span>
+                            <strong style="color: @(awayWin ? "var(--green)" : draw ? "var(--amber)" : "var(--text-primary)")">
+                                @(pick.AwayScore?.ToString() ?? "—")
+                            </strong>
+                        </div>
+                        @if (!pick.IsLive)
+                        {
+                            <div class="text-tertiary text-mono" style="font-size:11px;margin-top:6px;">
+                                ⏱ @pick.KickoffTime
+                            </div>
+                        }
+                        else
+                        {
+                            <span class="badge badge-live mt-2"><span class="dot live"></span>LIVE</span>
+                        }
                     </div>
-                    <div class="d-flex justify-content-between mt-2">
-                        <span><span class="text-tertiary me-2" style="font-size:11px;">AR</span>Argentina</span>
-                        <strong>1</strong>
-                    </div>
-                </div>
-
-                <div class="card mb-2">
-                    <div class="d-flex justify-content-between">
-                        <span><span class="text-tertiary me-2" style="font-size:11px;">FR</span><strong>France</strong></span>
-                        <strong>—</strong>
-                    </div>
-                    <div class="d-flex justify-content-between mt-2">
-                        <span><span class="text-tertiary me-2" style="font-size:11px;">ES</span>Spain</span>
-                        <strong>—</strong>
-                    </div>
-                </div>
-                <div class="card-tight text-secondary d-flex align-items-center gap-2 mb-3" style="font-size:13px;padding:8px 4px;">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--amber)" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
-                    <span style="color:var(--amber)">Kickoff 19:00 CET</span>
-                </div>
-
-                <div class="card mb-2">
-                    <div class="d-flex justify-content-between">
-                        <span><span class="text-tertiary me-2" style="font-size:11px;">DE</span><strong>Germany</strong></span>
-                        <strong>—</strong>
-                    </div>
-                    <div class="d-flex justify-content-between mt-2">
-                        <span>🏴 England</span>
-                        <strong>—</strong>
-                    </div>
-                </div>
-                <div class="card-tight text-secondary d-flex align-items-center gap-2 mb-3" style="font-size:13px;padding:8px 4px;">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--amber)" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
-                    <span style="color:var(--amber)">Kickoff 19:00 CET</span>
-                </div>
-
-                <div class="card is-active">
-                    <div class="d-flex justify-content-between">
-                        <span><span class="text-tertiary me-2" style="font-size:11px;">PT</span><strong>Portugal</strong></span>
-                        <strong style="color:var(--green)">1</strong>
-                    </div>
-                    <div class="d-flex justify-content-between mt-2">
-                        <span><span class="text-tertiary me-2" style="font-size:11px;">NL</span>Netherlands</span>
-                        <strong>0</strong>
-                    </div>
-                </div>
+                }
             </div>
 
-            @* --- SF column --- *@
             <div class="col-md-4">
                 <span class="section-title d-block mb-2">SF</span>
-                <div class="card mb-3" style="min-height:96px;">
-                    <span><span class="text-tertiary me-2" style="font-size:11px;">BR</span><strong>Brazil</strong></span>
-                    <div class="text-tertiary mt-2">TBD</div>
-                </div>
-                <div class="card" style="min-height:96px;">
-                    <div class="text-tertiary">TBD</div>
-                    <div class="text-tertiary mt-2">TBD</div>
-                </div>
+                @foreach (var pick in Model.Picks.Where(p => p.Round == "SF"))
+                {
+                    var homeWin = pick.HomeScore.HasValue && pick.AwayScore.HasValue && pick.HomeScore > pick.AwayScore;
+                    var awayWin = pick.HomeScore.HasValue && pick.AwayScore.HasValue && pick.AwayScore > pick.HomeScore;
+                    <div class="card @(homeWin ? "is-active" : "") mb-2">
+                        <div class="d-flex justify-content-between">
+                            <span><span class="text-tertiary me-2" style="font-size:11px;">@pick.HomeTeamCode</span><strong>@pick.HomeTeamName</strong></span>
+                            <strong style="color: @(homeWin ? "var(--green)" : "var(--text-primary)")">
+                                @(pick.HomeScore?.ToString() ?? "—")
+                            </strong>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1">
+                            <span><span class="text-tertiary me-2" style="font-size:11px;">@pick.AwayTeamCode</span>@pick.AwayTeamName</span>
+                            <strong style="color: @(awayWin ? "var(--green)" : "var(--text-primary)")">
+                                @(pick.AwayScore?.ToString() ?? "—")
+                            </strong>
+                        </div>
+                    </div>
+                }
             </div>
 
-            @* --- Final column --- *@
             <div class="col-md-4">
                 <span class="section-title d-block mb-2">Final · Jul 19</span>
-                <div class="card gold-highlight text-center py-4">
-                    <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--gold-bright)" stroke-width="1.5" class="mx-auto mb-2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4zM3 6h4v2a2 2 0 01-4 0V6zM17 6h4v2a2 2 0 01-4 0V6z" /></svg>
-                    <div class="text-gold fw-bold text-mono" style="font-size:13px;letter-spacing:0.08em;">WORLD CHAMPION</div>
-                    <div class="text-tertiary mt-3">TBD</div>
-                    <div class="text-tertiary mt-1">TBD</div>
-                </div>
+                @foreach (var pick in Model.Picks.Where(p => p.Round == "FINAL"))
+                {
+                    var homeWin = pick.HomeScore.HasValue && pick.AwayScore.HasValue && pick.HomeScore > pick.AwayScore;
+                    <div class="card gold-highlight text-center py-4">
+                        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--gold-bright)" stroke-width="1.5" class="mx-auto mb-2"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 01-10 0V4zM3 6h4v2a2 2 0 01-4 0V6zM17 6h4v2a2 2 0 01-4 0V6z" /></svg>
+                        <div class="text-gold fw-bold text-mono" style="font-size:13px;letter-spacing:0.08em;">WORLD CHAMPION</div>
+                        <div class="text-tertiary mt-3" style="color: @(homeWin ? "var(--green)" : "var(--text-primary)")">
+                            @(pick.HomeScore.HasValue ? $"{pick.HomeTeamName} {pick.HomeScore} - {pick.AwayScore} {pick.AwayTeamName}" : "TBD")
+                        </div>
+                    </div>
+                }
             </div>
         </div>
     </div>
 
-    @* ---------------- Private League + Live Updates ---------------- *@
     <div class="d-flex flex-column gap-4">
-
         <div class="panel">
             <div class="section-header">
-                <h3 style="font-size:20px;">Private League</h3>
-                <span class="badge" style="background:var(--bg-pill);color:var(--blue);border-color:rgba(77,163,255,0.3);">The Lads FC</span>
+                <h3 style="font-size:20px;">@Model.LeagueName</h3>
+                <span class="badge" style="background:var(--bg-pill);color:var(--blue);border-color:rgba(77,163,255,0.3);">Private League</span>
             </div>
-
             <div class="d-flex flex-column gap-3">
-                @{
-                    var members = new[] {
-                        new { Rank = 1, Name = "Marcus Thiel", Correct = 14, Points = 280 },
-                        new { Rank = 2, Name = "Sofia Reyes",  Correct = 12, Points = 245 },
-                        new { Rank = 3, Name = "James Okafor", Correct = 11, Points = 210 },
-                        new { Rank = 4, Name = "Lin Wei",      Correct = 9,  Points = 180 },
-                    };
-                }
-                @foreach (var m in members)
+                @foreach (var member in Model.LeagueStandings)
                 {
-                    <div class="d-flex align-items-center gap-3 @(m.Rank == 1 ? "gold-highlight p-2" : "")" style="@(m.Rank == 1 ? "border-radius:12px;" : "")">
-                        <span class="text-tertiary text-mono" style="font-size:13px;width:24px;">#@m.Rank</span>
+                    <div class="d-flex align-items-center gap-3 @(member.Rank == 1 ? "gold-highlight p-2" : "")" style="@(member.Rank == 1 ? "border-radius:12px;" : "")">
+                        <span class="text-tertiary text-mono" style="font-size:13px;width:24px;">#@member.Rank</span>
                         <div class="avatar"></div>
                         <div class="flex-grow-1">
-                            <div class="fw-bold">@m.Name</div>
-                            <div class="text-secondary" style="font-size:13px;">@m.Correct correct</div>
+                            <div class="fw-bold">@member.UserName</div>
                         </div>
-                        <strong class="@(m.Rank == 1 ? "text-gold" : "")">@m.Points pts</strong>
+                        <strong class="@(member.Rank == 1 ? "text-gold" : "")">@member.Points pts</strong>
                     </div>
                 }
-
-                <button class="btn btn-ghost" style="border-style:dashed;">+ Invite Friend</button>
+                <button class="btn btn-ghost" style="border-style:dashed;" data-action="invite-friend">+ Invite Friend</button>
             </div>
         </div>
 
@@ -162,40 +132,18 @@
                 <span class="dot live"></span>
                 <h3 style="font-size:18px;color:var(--red);">Live Updates</h3>
             </div>
-
             <div class="d-flex flex-column gap-3" id="liveUpdatesFeed">
-                @* TODO (Dev A): wire to MatchEventsHub via SignalR — events
-                   below are static placeholders matching the screenshot *@
-                <div class="d-flex gap-3">
-                    <span class="text-mono text-secondary" style="font-size:13px;width:32px;">73'</span>
-                    <div>
-                        <div>⚽ <strong>GOAL — Vinicius Jr.</strong></div>
-                        <div class="text-secondary" style="font-size:13px;">BRA 2–1 ARG</div>
+                @foreach (var evt in Model.LiveEvents.Take(5))
+                {
+                    <div class="d-flex gap-3">
+                        <span class="text-mono text-secondary" style="font-size:13px;width:32px;">@evt.Minute'</span>
+                        <div>
+                            <div>@evt.Icon <strong>@evt.EventType — @evt.PlayerName</strong></div>
+                            <div class="text-secondary" style="font-size:13px;">@evt.Score</div>
+                        </div>
                     </div>
-                </div>
-                <div class="d-flex gap-3">
-                    <span class="text-mono text-secondary" style="font-size:13px;width:32px;">68'</span>
-                    <div>
-                        <div>🟨 <strong>Yellow — De Paul</strong></div>
-                        <div class="text-secondary" style="font-size:13px;">BRA 1–1 ARG</div>
-                    </div>
-                </div>
-                <div class="d-flex gap-3">
-                    <span class="text-mono text-secondary" style="font-size:13px;width:32px;">54'</span>
-                    <div>
-                        <div>⚽ <strong>GOAL — Messi</strong></div>
-                        <div class="text-secondary" style="font-size:13px;">BRA 1–1 ARG</div>
-                    </div>
-                </div>
-                <div class="d-flex gap-3">
-                    <span class="text-mono text-secondary" style="font-size:13px;width:32px;">23'</span>
-                    <div>
-                        <div>⚽ <strong>GOAL — Rodrygo</strong></div>
-                        <div class="text-secondary" style="font-size:13px;">BRA 1–0 ARG</div>
-                    </div>
-                </div>
+                }
             </div>
         </div>
     </div>
 </div>
-

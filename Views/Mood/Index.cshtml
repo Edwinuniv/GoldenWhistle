@@ -11,15 +11,17 @@
     </div>
 </div>
 
-<div style="padding: 0 var(--space-6) var(--space-6);">
-    <div class="panel mb-4">
-        <div class="d-flex align-items-center gap-2 mb-4">
-            <span class="dot live"></span>
-            <span class="text-mono" style="font-size:13px;letter-spacing:0.08em;">LIVE VOTING</span>
-            <span class="text-secondary" style="font-size:13px;" id="voteCountPanel">@Model.TotalVotes.ToString("N0") fans voted</span>
-        </div>
+<div class="mood-page-content">
+    <!-- Match Selector -->
+    <div class="mood-match-selector">
+        <select id="matchSelector" class="form-control" onchange="loadMatch(this.value)">
+            <option value="">-- Select a match --</option>
+        </select>
+    </div>
 
-        <div class="row g-5 align-items-center">
+    <div class="panel mb-4">
+        <div class="row g-4 align-items-center">
+            <!-- Left: Doughnut + Legend -->
             <div class="col-md-5">
                 <div class="doughnut-wrap">
                     <canvas id="moodDoughnut"
@@ -29,10 +31,10 @@
                     </canvas>
                     <div id="doughnutCenter" class="doughnut-center">
                         <div class="doughnut-emoji">🌍</div>
-                        <div class="text-secondary doughnut-label">Global mood</div>
+                        <div class="doughnut-label">Global mood</div>
                     </div>
                 </div>
-                <div class="d-flex flex-column gap-2 mt-4">
+                <div class="d-flex flex-column gap-1 mt-3">
                     <div class="mood-legend-row">
                         <span class="d-flex align-items-center gap-2"><span class="dot ecstasy"></span>Ecstasy</span>
                         <div class="mood-legend-bar-wrap">
@@ -57,13 +59,23 @@
                 </div>
             </div>
 
+            <!-- Right: Voting -->
             <div class="col-md-7">
                 <h2 class="mood-question">How do you feel right now?</h2>
-                <p class="text-secondary mb-4">Watching @Model.HomeTeamName vs @Model.AwayTeamName · @Model.MatchMinuteLabel · @Model.ScoreLabel</p>
+                <p class="mood-match-info" id="moodMatchInfo">
+                    Watching <span id="matchHomeTeam">@Model.HomeTeamName</span> vs <span id="matchAwayTeam">@Model.AwayTeamName</span>
+                    · <span id="matchStatus">@Model.MatchMinuteLabel</span>
+                    · <span id="matchScore">@Model.ScoreLabel</span>
+                </p>
 
-                <div class="d-flex flex-column gap-3" id="votingBtns">
+                <div class="live-voting-header">
+                    <span class="live-voting-badge"><span class="dot live"></span> LIVE VOTING</span>
+                    <span class="live-voting-count" id="voteCountPanel">@Model.TotalVotes.ToString("N0") fans voted</span>
+                </div>
+
+                <div class="d-flex flex-column gap-2" id="votingBtns">
                     <button class="emotion-btn @(Model.CurrentUserVote == "Ecstasy" ? "selected-ecstasy" : "")"
-                            data-emotion="ecstasy" onclick="castVote('ecstasy', @Model.MatchId)">
+                            data-emotion="ecstasy" onclick="castVote('ecstasy')">
                         <span class="emotion-emoji">🤩</span>
                         <div>
                             <div class="emotion-name" style="color:var(--green);">Ecstasy</div>
@@ -79,7 +91,7 @@
                     </button>
 
                     <button class="emotion-btn @(Model.CurrentUserVote == "Anxiety" ? "selected-anxious" : "")"
-                            data-emotion="anxious" onclick="castVote('anxious', @Model.MatchId)">
+                            data-emotion="anxious" onclick="castVote('anxious')">
                         <span class="emotion-emoji">😬</span>
                         <div>
                             <div class="emotion-name text-gold">Anxious</div>
@@ -95,7 +107,7 @@
                     </button>
 
                     <button class="emotion-btn @(Model.CurrentUserVote == "Agony" ? "selected-agony" : "")"
-                            data-emotion="agony" onclick="castVote('agony', @Model.MatchId)">
+                            data-emotion="agony" onclick="castVote('agony')">
                         <span class="emotion-emoji">😭</span>
                         <div>
                             <div class="emotion-name" style="color:var(--red);">Agony</div>
@@ -118,18 +130,20 @@
         </div>
     </div>
 
+    <!-- Timeline -->
     <div class="panel">
-        <h3 style="font-size:22px;">Mood Timeline</h3>
-        <p class="text-secondary" style="font-size:14px;margin-top:4px;margin-bottom:20px;">Fan sentiment over the last 90 minutes</p>
-        <div class="chart-wrap" style="height:260px;">
+        <h3 style="font-size:20px;">Mood Timeline</h3>
+        <p class="text-secondary" style="font-size:13px;margin-top:2px;margin-bottom:16px;">Fan sentiment over the last 90 minutes</p>
+        <div class="chart-wrap" style="height:240px;">
             <canvas id="moodTimelineChart"
                     data-labels="@string.Join(",", Model.Timeline.Select(t => t.Minute))"
-                    data-ecstasy="@string.Join(",", Model.Timeline.Select(t => t.EcstasyCount))">
+                    data-ecstasy="@string.Join(",", Model.Timeline.Select(t => t.EcstasyCount))"
+                    data-anxiety="@string.Join(",", Model.Timeline.Select(t => t.AnxietyCount))"
+                    data-agony="@string.Join(",", Model.Timeline.Select(t => t.AgonyCount))">
             </canvas>
         </div>
     </div>
 </div>
 
-@* Hidden field so JS knows current matchId and user vote *@
 <input type="hidden" id="currentMatchId" value="@Model.MatchId" />
 <input type="hidden" id="currentUserVote" value="@Model.CurrentUserVote" />

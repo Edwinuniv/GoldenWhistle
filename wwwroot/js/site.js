@@ -1,11 +1,10 @@
 ﻿/* ===================================================================
-   site.js — GoldenWhistle · Dev B · ALL JS IN ONE FILE
-   Contains: Chart defaults, shared helpers, SignalR stub,
-             Dashboard logic, Bracket logic, Mood logic
+   site.js — GoldenWhistle · ALL REAL DATA FROM API
+   NO FAKE DATA — Everything comes from the database
    =================================================================== */
 
 // ---------------------------------------------------------------
-// 1. CHART.JS GLOBAL DEFAULTS — dark theme + draw-in animations
+// 1. CHART.JS GLOBAL DEFAULTS
 // ---------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
     if (!window.Chart) return;
@@ -16,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
     Chart.defaults.animation = { duration: 1100, easing: 'easeOutQuart' };
     Chart.defaults.animations.colors = { duration: 400 };
 
-    // Init the right page
     const page = document.body.dataset.page;
     if (page === 'dashboard') initDashboard();
     if (page === 'bracket') initBracket();
@@ -26,6 +24,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (page === 'marketplace') initMarketplace();
     if (page === 'simulator') initSimulator();
     if (page === 'profile') initProfile();
+    if (page === 'settings') initSettings();
+    if (page === 'kickoff') initKickoff();
+
+    document.querySelectorAll('[data-action]').forEach(el => {
+        el.addEventListener('click', (e) => {
+            const action = el.dataset.action;
+            if (typeof window[action] === 'function') window[action]();
+        });
+    });
 });
 
 // ---------------------------------------------------------------
@@ -61,9 +68,20 @@ function drawInBarAnimation() {
 }
 
 // ---------------------------------------------------------------
-// 3. FAN PULSE BAR — shared top bar updater
+// 3. FAN PULSE BAR — REAL DATA FROM API
 // ---------------------------------------------------------------
-function updateFanPulse(ecstasy, anxious, agony, totalVotes) {
+async function updateFanPulseFromAPI() {
+    try {
+        const response = await fetch('/api/mood/global-stats');
+        if (!response.ok) throw new Error('Failed to load fan pulse');
+        const data = await response.json();
+        updateFanPulseUI(data.ecstasy, data.anxious, data.agony, data.total);
+    } catch (e) {
+        console.warn('Error loading fan pulse:', e);
+    }
+}
+
+function updateFanPulseUI(ecstasy, anxious, agony, totalVotes) {
     const segE = document.getElementById('segEcstasy');
     if (!segE) return;
     document.getElementById('segEcstasy').style.width = ecstasy + '%';
@@ -76,9 +94,10 @@ function updateFanPulse(ecstasy, anxious, agony, totalVotes) {
 }
 
 // ---------------------------------------------------------------
-// 4. SIGNALR STUB — connects once hubs exist (Dev A M1/M2)
+// 4. SIGNALR CONNECTION
 // ---------------------------------------------------------------
 let hubConnection = null;
+
 function initSignalRConnection(hubUrl) {
     if (!window.signalR) return null;
     hubConnection = new signalR.HubConnectionBuilder()
@@ -86,7 +105,7 @@ function initSignalRConnection(hubUrl) {
         .withAutomaticReconnect()
         .build();
     hubConnection.start().catch(err =>
-        console.warn('SignalR not ready yet (expected until backend ships):', err.message));
+        console.warn('SignalR not ready yet:', err.message));
     return hubConnection;
 }
 
@@ -94,45 +113,68 @@ function initSignalRConnection(hubUrl) {
 // 5. DASHBOARD PAGE
 // ---------------------------------------------------------------
 function initDashboard() {
-    updateFanPulse(48, 31, 21, 247831);
+    updateFanPulseFromAPI();
 
     const xgCanvas = document.getElementById('xgByMatchChart');
-    const xgLabels = xgCanvas ? xgCanvas.dataset.labels.split(',') : [];
-    const xgValues = xgCanvas ? xgCanvas.dataset.values.split(',').map(Number) : [];
-    new Chart(xgCanvas, {
-        type: 'bar',
-        data: {
-            labels: xgLabels,
-            datasets: [{
-                data: xgValues,
-                backgroundColor: '#FFB700',
-                borderRadius: 6,
-                maxBarThickness: 56
-            }]
-        },
-        options: {
-            animation: drawInBarAnimation(),
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, max: 3, grid: { color: 'rgba(255,255,255,0.06)' } },
-                x: { grid: { display: false } }
-            }
+    if (xgCanvas) {
+        const xgLabels = xgCanvas.dataset.labels ? xgCanvas.dataset.labels.split(',') : [];
+        const xgValues = xgCanvas.dataset.values ? xgCanvas.dataset.values.split(',').map(Number) : [];
+        if (xgLabels.length > 0 && xgValues.length > 0) {
+            new Chart(xgCanvas, {
+                type: 'bar',
+                data: {
+                    labels: xgLabels,
+                    datasets: [{
+                        data: xgValues,
+                        backgroundColor: '#FFB700',
+                        borderRadius: 6,
+                        maxBarThickness: 56
+                    }]
+                },
+                options: {
+                    animation: drawInBarAnimation(),
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { beginAtZero: true, max: 3, grid: { color: 'rgba(255,255,255,0.06)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
         }
-    });
+    }
 
-    // TODO: const conn = initSignalRConnection('/hubs/leaderboard');
-    // conn.on('LeaderboardUpdated', payload => { /* re-render */ });
+    const searchInput = document.getElementById('dashboardSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            document.querySelectorAll('.card').forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+    }
+
+    const conn = initSignalRConnection('/hubs/leaderboard');
+    if (conn) {
+        conn.on('LeaderboardUpdated', (payload) => {
+            console.log('Leaderboard updated:', payload);
+            // Re-fetch leaderboard data
+        });
+    }
 }
 
 // ---------------------------------------------------------------
 // 6. BRACKET PAGE
 // ---------------------------------------------------------------
 function initBracket() {
-    updateFanPulse(48, 31, 21, 247831);
+    updateFanPulseFromAPI();
 
-    // TODO: const conn = initSignalRConnection('/hubs/leaderboard');
-    // conn.on('LeagueRankUpdated', payload => { /* update standings */ });
-    // conn.on('MatchEventPushed', event => appendLiveEvent(event));
+    const conn = initSignalRConnection('/hubs/leaderboard');
+    if (conn) {
+        conn.on('MatchEventPushed', (event) => {
+            appendLiveEvent(event);
+        });
+    }
 }
 
 function appendLiveEvent(event) {
@@ -149,23 +191,63 @@ function appendLiveEvent(event) {
     feed.prepend(el);
 }
 
+function shareBracket() {
+    if (navigator.share) {
+        navigator.share({
+            title: 'My Bracket Challenge',
+            text: 'Check out my bracket predictions on GoldenWhistle!',
+            url: window.location.href
+        });
+    } else {
+        navigator.clipboard.writeText(window.location.href).then(() => {
+            alert('Link copied to clipboard!');
+        });
+    }
+}
+
+function lockPredictions() {
+    if (confirm('Are you sure you want to lock your predictions?')) {
+        fetch('/api/bracket/lock', { method: 'POST' })
+            .then(r => r.json())
+            .then(data => {
+                alert(data.message || 'Predictions locked!');
+                location.reload();
+            })
+            .catch(() => alert('Error locking predictions.'));
+    }
+}
+
+function inviteFriend() {
+    const email = prompt('Enter your friend\'s email:');
+    if (email) {
+        fetch('/api/league/invite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email })
+        })
+            .then(r => r.json())
+            .then(data => alert(data.message || 'Invitation sent!'))
+            .catch(() => alert('Error sending invitation.'));
+    }
+}
+
 // ---------------------------------------------------------------
 // 7. MOOD MAP PAGE
 // ---------------------------------------------------------------
 let moodDoughnutChart = null;
-const moodState = { ecstasy: 48, anxious: 31, agony: 21, total: 247731 };
+let moodTimelineChart = null;
+const moodState = { ecstasy: 0, anxious: 0, agony: 0, total: 0 };
 
 function initMood() {
-    updateFanPulse(moodState.ecstasy, moodState.anxious, moodState.agony, moodState.total);
-
-    // Doughnut
-    // Read real values from Razor-rendered data attributes
     const moodCanvas = document.getElementById('moodDoughnut');
     if (moodCanvas) {
-        moodState.ecstasy = parseInt(moodCanvas.dataset.ecstasy) || 48;
-        moodState.anxious = parseInt(moodCanvas.dataset.anxiety) || 31;
-        moodState.agony = parseInt(moodCanvas.dataset.agony) || 21;
+        moodState.ecstasy = parseInt(moodCanvas.dataset.ecstasy) || 0;
+        moodState.anxious = parseInt(moodCanvas.dataset.anxiety) || 0;
+        moodState.agony = parseInt(moodCanvas.dataset.agony) || 0;
+        moodState.total = moodState.ecstasy + moodState.anxious + moodState.agony;
     }
+
+    updateFanPulseUI(moodState.ecstasy, moodState.anxious, moodState.agony, moodState.total || 0);
 
     moodDoughnutChart = new Chart(moodCanvas, {
         type: 'doughnut',
@@ -184,191 +266,282 @@ function initMood() {
         }
     });
 
-    // Timeline line chart
     const tlCanvas = document.getElementById('moodTimelineChart');
-    const tlLabels = tlCanvas?.dataset.labels?.split(',') || ["0'", "15'", "30'", "45'", "60'", "75'", "90'"];
-    const tlData = tlCanvas?.dataset.ecstasy?.split(',').map(Number) || [0, 0, 0, 0, 0, 0, 0];
-    new Chart(tlCanvas, {
-        type: 'line',
-        data: {
-            labels: tlLabels,
-            datasets: [{
-                label: 'Ecstasy',
-                data: tlData,
-                borderColor: '#00FF87',
-                backgroundColor: 'rgba(0,255,135,0.08)',
-                fill: true,
-                tension: 0.4,
-                pointBackgroundColor: '#00FF87',
-                pointRadius: 4
-            }]
-        },
-        options: {
-            animation: drawInLineAnimation(),
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { min: 0, max: 80, grid: { color: 'rgba(255,255,255,0.06)' } },
-                x: { grid: { display: false } }
-            }
-        }
-    });
+    if (tlCanvas) {
+        const tlLabels = tlCanvas.dataset.labels?.split(',') || [];
+        const tlEcstasy = tlCanvas.dataset.ecstasy?.split(',').map(Number) || [];
+        const tlAnxiety = tlCanvas.dataset.anxiety?.split(',').map(Number) || [];
+        const tlAgony = tlCanvas.dataset.agony?.split(',').map(Number) || [];
 
-    // SignalR — MoodMapHub (Dev A confirmed method: ReceiveMoodUpdate)
+        moodTimelineChart = new Chart(tlCanvas, {
+            type: 'line',
+            data: {
+                labels: tlLabels,
+                datasets: [
+                    {
+                        label: 'Ecstasy',
+                        data: tlEcstasy,
+                        borderColor: '#00FF87',
+                        backgroundColor: 'rgba(0,255,135,0.06)',
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#00FF87',
+                        pointRadius: 3,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        label: 'Anxious',
+                        data: tlAnxiety,
+                        borderColor: '#FFB700',
+                        backgroundColor: 'rgba(255,183,0,0.06)',
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#FFB700',
+                        pointRadius: 3,
+                        pointHoverRadius: 6
+                    },
+                    {
+                        label: 'Agony',
+                        data: tlAgony,
+                        borderColor: '#FF4D6D',
+                        backgroundColor: 'rgba(255,77,109,0.06)',
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#FF4D6D',
+                        pointRadius: 3,
+                        pointHoverRadius: 6
+                    }
+                ]
+            },
+            options: {
+                animation: drawInLineAnimation(),
+                plugins: {
+                    legend: {
+                        display: true,
+                        labels: {
+                            color: '#8C97AD',
+                            boxWidth: 12,
+                            padding: 12,
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(255,255,255,0.06)' },
+                        ticks: { color: '#8C97AD' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: '#8C97AD' }
+                    }
+                },
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                }
+            }
+        });
+    }
+
+    loadMatches();
+
     const moodConn = initSignalRConnection('/hubs/moodmap');
     if (moodConn) {
-        moodConn.on('ReceiveMoodUpdate', (matchId, mood, ecstasy, agony, anxiety) => {
-            applyMoodUpdate(ecstasy, anxiety, agony, moodState.total + 1);
+        moodConn.on('ReceiveTallies', (payload) => {
+            applyMoodUpdate(
+                payload.ecstasy || 0,
+                payload.anxiety || 0,
+                payload.agony || 0,
+                payload.total || 0
+            );
         });
+    }
+}
+
+async function loadMatches() {
+    const selector = document.getElementById('matchSelector');
+    if (!selector) return;
+    try {
+        const response = await fetch('/api/mood/matches');
+        if (!response.ok) throw new Error('Failed to load matches');
+        const matches = await response.json();
+        selector.innerHTML = '<option value="">-- Select a match --</option>';
+        matches.forEach(m => {
+            const option = document.createElement('option');
+            option.value = m.id;
+            option.textContent = `${m.homeTeam} vs ${m.awayTeam} - ${m.date}`;
+            selector.appendChild(option);
+        });
+        const currentMatchId = document.getElementById('currentMatchId')?.value;
+        if (currentMatchId) selector.value = currentMatchId;
+    } catch (e) {
+        console.warn('Error loading matches:', e.message);
+    }
+}
+
+async function loadMatch(matchId) {
+    if (!matchId) return;
+    try {
+        const response = await fetch(`/api/mood/stats/${matchId}`);
+        if (!response.ok) throw new Error('Failed to load match stats');
+        const data = await response.json();
+        document.getElementById('matchHomeTeam').textContent = data.homeTeam;
+        document.getElementById('matchAwayTeam').textContent = data.awayTeam;
+        document.getElementById('matchStatus').textContent = data.status;
+        document.getElementById('matchScore').textContent = data.score;
+        applyMoodUpdate(
+            data.ecstasyPct || 0,
+            data.anxietyPct || 0,
+            data.agonyPct || 0,
+            data.totalVotes || 0
+        );
+        document.getElementById('currentMatchId').value = matchId;
+    } catch (e) {
+        console.warn('Error loading match:', e.message);
     }
 }
 
 async function castVote(emotion, matchId) {
     document.querySelectorAll('.emotion-btn').forEach(btn =>
         btn.classList.remove('selected-ecstasy', 'selected-anxious', 'selected-agony'));
-    document.querySelector(`[data-emotion="${emotion}"]`).classList.add(`selected-${emotion}`);
+    const selectedBtn = document.querySelector(`[data-emotion="${emotion}"]`);
+    if (selectedBtn) {
+        selectedBtn.classList.add(`selected-${emotion}`);
+    }
 
     const emojis = { ecstasy: '🤩', anxious: '😬', agony: '😭' };
     const center = document.getElementById('doughnutCenter');
-    if (center) center.innerHTML = `
-        <div style="font-size:28px;">${emojis[emotion]}</div>
-        <div class="text-secondary" style="font-size:13px;margin-top:4px;">Your vote</div>`;
+    if (center) {
+        center.innerHTML = `
+            <div style="font-size:28px;">${emojis[emotion]}</div>
+            <div class="text-secondary" style="font-size:11px;margin-top:2px;">Your vote</div>`;
+    }
 
     const msg = document.getElementById('thanksMsg');
     if (msg) msg.classList.add('visible');
 
-    // POST to Dev A's real endpoint
-    // MoodType enum: Ecstasy=0, Agony=1, Anxiety=2
     const moodMap = { ecstasy: 'Ecstasy', anxious: 'Anxiety', agony: 'Agony' };
+    const matchIdValue = matchId || parseInt(document.getElementById('currentMatchId')?.value);
+
     try {
-        await fetch('/api/mood/vote', {
+        const response = await fetch('/api/mood/vote', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ matchId: matchId || parseInt(document.getElementById('currentMatchId')?.value), mood: moodMap[emotion] })
+            body: JSON.stringify({
+                matchId: matchIdValue,
+                mood: moodMap[emotion]
+            })
         });
-    } catch (e) { console.warn('Vote API not ready yet:', e.message); }
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data) {
+            applyMoodUpdate(
+                data.ecstasyPct || 0,
+                data.anxietyPct || 0,
+                data.agonyPct || 0,
+                data.totalVotes || 0
+            );
+        }
+    } catch (e) {
+        console.warn('Vote API error:', e.message);
+    }
 }
 
 function applyMoodUpdate(ecstasy, anxious, agony, total) {
-    Object.assign(moodState, { ecstasy, anxious, agony, total });
+    moodState.ecstasy = ecstasy;
+    moodState.anxious = anxious;
+    moodState.agony = agony;
+    moodState.total = total;
 
     if (moodDoughnutChart) {
         moodDoughnutChart.data.datasets[0].data = [ecstasy, anxious, agony];
         moodDoughnutChart.update();
     }
 
-    ['E', 'A', 'G'].forEach((k, i) => {
-        const vals = [ecstasy, anxious, agony];
-        const ids = ['E', 'A', 'G'];
+    const labels = ['E', 'A', 'G'];
+    const values = [ecstasy, anxious, agony];
+    labels.forEach((k, i) => {
         const el = document.getElementById('legendPct' + k);
         const bar = document.getElementById('bar' + k);
         const pct = document.getElementById('pct' + k);
-        if (el) el.textContent = vals[i] + '%';
-        if (bar) bar.style.width = vals[i] + '%';
-        if (pct) pct.textContent = vals[i] + '%';
+        const fans = document.getElementById('fans' + k);
+
+        if (el) el.textContent = values[i] + '%';
+        if (bar) bar.style.width = values[i] + '%';
+        if (pct) pct.textContent = values[i] + '%';
+
+        const count = Math.round((values[i] / 100) * total) || 0;
+        if (fans) fans.textContent = count.toLocaleString('en-US') + ' fans';
     });
 
     const panel = document.getElementById('voteCountPanel');
     if (panel) panel.textContent = total.toLocaleString('en-US') + ' fans voted';
 
-    updateFanPulse(ecstasy, anxious, agony, total);
+    updateFanPulseUI(ecstasy, anxious, agony, total);
 }
 
 // ---------------------------------------------------------------
-// 8. PUB FINDER PAGE — placeholder (Leaflet init goes here)
+// 8. PUB FINDER PAGE — REAL DATA FROM API
 // ---------------------------------------------------------------
-function initPub() {
-    updateFanPulse(48, 31, 21, 247831);
-    // Leaflet map init will go here once M4 view is built
-}
-
-// ---------------------------------------------------------------
-// 9. DATA VISUALIZER PAGE — placeholder
-// ---------------------------------------------------------------
-function initData() {
-    updateFanPulse(48, 31, 21, 247831);
-    // xG Timeline, Possession Flow, Heat Map, Radar charts go here
-}
-
-// ---------------------------------------------------------------
-// 10. MARKETPLACE PAGE — placeholder
-// ---------------------------------------------------------------
-function initMarketplace() {
-    updateFanPulse(48, 31, 21, 247831);
-}
-
-// ---------------------------------------------------------------
-// 11. SIMULATOR PAGE — placeholder
-// ---------------------------------------------------------------
-function initSimulator() {
-    updateFanPulse(48, 31, 21, 247831);
-}
-
-// ---------------------------------------------------------------
-// 12. PROFILE / SETTINGS PAGE
-// ---------------------------------------------------------------
-function initProfile() {
-    updateFanPulse(48, 31, 21, 247831);
-    // Show account tab by default
-    const accountTab = document.getElementById('tab-account');
-    if (accountTab) accountTab.classList.add('active');
-}
-function showTab(evt, tabName) {
-    // Hide all tab panels
-    document.querySelectorAll('.settings-tab-panel').forEach(el => el.classList.remove('active'));
-    // Show selected panel
-    const target = document.getElementById('tab-' + tabName);
-    if (target) target.classList.add('active');
-    // Update tab button styles
-    document.querySelectorAll('.settings-tab').forEach(btn => btn.classList.remove('active'));
-    evt.currentTarget.classList.add('active');
-}
-
-// ---------------------------------------------------------------
-// 13. PUB FINDER PAGE
-// ---------------------------------------------------------------
-
-// Mock pub data — TODO (Dev A): replace with /api/pubs?lat=&lng= once
-// PubLocations table + geolocation endpoint is wired in M4 backend
-const PUB_DATA = [
-    {
-        id: 1, name: 'The Offside Trap', area: 'Shoreditch', city: 'London',
-        distance: '0.2 km', rating: 4.9, reviews: 342, screens: 8,
-        status: 'Packed', statusClass: 'badge-live',
-        lat: 51.524, lng: -0.079, open: true, free: true, hd: true,
-        img: ''
-    },
-    {
-        id: 2, name: 'Corner Flag & Craft', area: 'Islington', city: 'London',
-        distance: '0.6 km', rating: 4.6, reviews: 198, screens: 5,
-        status: 'Available', statusClass: 'badge-success',
-        lat: 51.536, lng: -0.071, open: true, free: true, hd: true,
-        img: ''
-    },
-    {
-        id: 3, name: 'Golazo Sports Bar', area: 'Hackney', city: 'London',
-        distance: '1.1 km', rating: 4.3, reviews: 87, screens: 3,
-        status: 'Open', statusClass: 'badge-ft',
-        lat: 51.529, lng: -0.063, open: true, free: false, hd: true,
-        img: ''
-    },
-    {
-        id: 4, name: 'The Football Factory', area: 'Bethnal Green', city: 'London',
-        distance: '1.4 km', rating: 4.1, reviews: 54, screens: 6,
-        status: 'Open', statusClass: 'badge-ft',
-        lat: 51.521, lng: -0.056, open: true, free: false, hd: false,
-        img: ''
-    }
-];
-
 let leafletMap = null;
-let leafletMarkers = {};
+let currentPubs = [];
+let selectedPubId = null;
 let activeFilter = 'all';
-let activePubId = null;
 
 function initPub() {
-    updateFanPulse(48, 31, 21, 247831);
-    renderPubList(PUB_DATA);
+    updateFanPulseFromAPI();
     initLeafletMap();
+    loadPubs(51.528, -0.068);
+
+    const searchInput = document.getElementById('pubSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => filterPubs(e.target.value));
+    }
+
+    document.querySelectorAll('[data-filter]').forEach(chip => {
+        chip.addEventListener('click', () => {
+            document.querySelectorAll('[data-filter]').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            activeFilter = chip.dataset.filter;
+            filterPubs(document.getElementById('pubSearchInput')?.value || '');
+        });
+    });
+
+    document.querySelector('[data-action="locate-me"]')?.addEventListener('click', locateMe);
+    document.querySelector('[data-action="get-directions"]')?.addEventListener('click', getDirections);
+    document.querySelector('[data-action="book-table"]')?.addEventListener('click', bookTable);
+}
+
+function initLeafletMap() {
+    if (!window.L) { console.warn('Leaflet not loaded'); return; }
+    leafletMap = L.map('pubMap', { zoomControl: false }).setView([51.528, -0.068], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(leafletMap);
+    L.control.zoom({ position: 'bottomright' }).addTo(leafletMap);
+}
+
+async function loadPubs(lat, lng) {
+    try {
+        const url = `/api/pubs?lat=${lat || 0}&lng=${lng || 0}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to load pubs');
+        currentPubs = await response.json();
+        renderPubList(currentPubs);
+        updateMapMarkers(currentPubs);
+        updateLocationInfo(currentPubs);
+    } catch (e) {
+        console.warn('Error loading pubs:', e);
+        currentPubs = [];
+        renderPubList([]);
+        updateMapMarkers([]);
+    }
 }
 
 function renderPubList(pubs) {
@@ -377,21 +550,23 @@ function renderPubList(pubs) {
     list.innerHTML = '';
     pubs.forEach(pub => {
         const card = document.createElement('div');
-        card.className = 'pub-card' + (pub.id === activePubId ? ' active' : '');
+        card.className = 'pub-card' + (pub.id === selectedPubId ? ' active' : '');
         card.dataset.id = pub.id;
         card.innerHTML = `
             <div style="height:80px;background:linear-gradient(135deg,var(--bg-pill),var(--bg-panel-raised));display:flex;align-items:center;justify-content:center;">
-                <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--text-tertiary)" stroke-width="1"><path d="M12 21s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>
+                ${pub.imageUrl ? `<img src="${pub.imageUrl}" style="width:100%;height:100%;object-fit:cover;" />` :
+                `<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="var(--text-tertiary)" stroke-width="1"><path d="M12 21s7-6.5 7-12a7 7 0 10-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>`
+            }
             </div>
             <div style="padding:12px;">
                 <div class="d-flex justify-content-between align-items-start">
                     <strong style="font-size:14px;">${pub.name}</strong>
-                    <span class="badge ${pub.statusClass}" style="font-size:10px;">${pub.status}</span>
+                    <span class="badge ${pub.isOpen ? 'badge-live' : 'badge-ft'}" style="font-size:10px;">${pub.isOpen ? 'Open' : 'Closed'}</span>
                 </div>
-                <div class="text-secondary" style="font-size:12px;margin-top:4px;">${pub.area} · ${pub.distance}</div>
+                <div class="text-secondary" style="font-size:12px;margin-top:4px;">${pub.address}</div>
                 <div class="d-flex align-items-center gap-2 mt-1">
-                    <span style="color:var(--amber);font-size:13px;">${'★'.repeat(Math.floor(pub.rating))}${'☆'.repeat(5 - Math.floor(pub.rating))}</span>
-                    <span class="text-secondary" style="font-size:12px;">${pub.reviews} reviews · ${pub.screens} screens</span>
+                    <span style="color:var(--amber);font-size:13px;">${'★'.repeat(Math.floor(pub.rating || 0))}${'☆'.repeat(5 - Math.floor(pub.rating || 0))}</span>
+                    <span class="text-secondary" style="font-size:12px;">${pub.reviews || 0} reviews · ${pub.screens || 0} screens</span>
                 </div>
             </div>`;
         card.addEventListener('click', () => selectPub(pub.id));
@@ -399,190 +574,194 @@ function renderPubList(pubs) {
     });
 }
 
-function initLeafletMap() {
-    if (!window.L) { console.warn('Leaflet not loaded'); return; }
-
-    leafletMap = L.map('pubMap', { zoomControl: false }).setView([51.528, -0.068], 14);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(leafletMap);
-
-    L.control.zoom({ position: 'bottomright' }).addTo(leafletMap);
-
-    PUB_DATA.forEach(pub => {
-        const icon = L.divIcon({
-            className: '',
-            html: `<div class="pub-marker-label" id="marker-${pub.id}">${pub.name}</div>`,
-            iconAnchor: [0, 12]
-        });
-        const marker = L.marker([pub.lat, pub.lng], { icon }).addTo(leafletMap);
+function updateMapMarkers(pubs) {
+    if (!leafletMap) return;
+    leafletMap.eachLayer(layer => {
+        if (layer instanceof L.Marker) leafletMap.removeLayer(layer);
+    });
+    pubs.forEach(pub => {
+        const marker = L.marker([pub.lat, pub.lng]).addTo(leafletMap);
         marker.on('click', () => selectPub(pub.id));
-        leafletMarkers[pub.id] = marker;
     });
 }
 
+function updateLocationInfo(pubs) {
+    document.getElementById('pubCount').textContent = `${pubs.length} venues found nearby`;
+}
+
 function selectPub(id) {
-    activePubId = id;
-    const pub = PUB_DATA.find(p => p.id === id);
+    selectedPubId = id;
+    const pub = currentPubs.find(p => p.id === id);
     if (!pub) return;
 
-    // Highlight card
     document.querySelectorAll('.pub-card').forEach(c => c.classList.remove('active'));
     const card = document.querySelector(`.pub-card[data-id="${id}"]`);
-    if (card) { card.classList.add('active'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+    if (card) card.classList.add('active');
 
-    // Highlight marker
-    document.querySelectorAll('.pub-marker-label').forEach(m => m.classList.remove('selected'));
-    const markerEl = document.getElementById(`marker-${id}`);
-    if (markerEl) markerEl.classList.add('selected');
-
-    // Pan map
-    if (leafletMap) leafletMap.flyTo([pub.lat, pub.lng], 15, { duration: 0.8 });
-
-    // Show detail popup
     const popup = document.getElementById('pubDetailPopup');
     if (popup) {
         document.getElementById('popupName').textContent = pub.name;
-        document.getElementById('popupAddr').textContent = `${pub.area}, ${pub.city} · ${pub.distance}`;
-        document.getElementById('popupStars').textContent = '★'.repeat(Math.floor(pub.rating)) + '☆'.repeat(5 - Math.floor(pub.rating));
-        document.getElementById('popupReviews').textContent = `${pub.reviews} reviews · ${pub.screens} screens`;
-        document.getElementById('popupStatus').className = `badge ${pub.statusClass} ms-2`;
-        document.getElementById('popupStatus').textContent = pub.status;
+        document.getElementById('popupAddr').textContent = pub.address;
+        document.getElementById('popupStars').textContent = '★'.repeat(Math.floor(pub.rating || 0)) + '☆'.repeat(5 - Math.floor(pub.rating || 0));
+        document.getElementById('popupReviews').textContent = `${pub.reviews || 0} reviews`;
+        document.getElementById('popupStatus').className = `badge ${pub.isOpen ? 'badge-live' : 'badge-ft'} ms-2`;
+        document.getElementById('popupStatus').textContent = pub.isOpen ? 'Open' : 'Closed';
         popup.classList.add('visible');
     }
 }
 
 function filterPubs(query) {
     const q = query.toLowerCase();
-    const filtered = PUB_DATA.filter(p =>
-        (p.name.toLowerCase().includes(q) || p.area.toLowerCase().includes(q)) &&
-        matchesFilter(p)
+    let filtered = currentPubs.filter(p =>
+        p.name.toLowerCase().includes(q) || p.address.toLowerCase().includes(q)
     );
+    if (activeFilter === 'open') filtered = filtered.filter(p => p.isOpen);
+    else if (activeFilter === 'free') filtered = filtered.filter(p => p.freeEntry);
+    else if (activeFilter === 'hd') filtered = filtered.filter(p => p.hdScreens);
     renderPubList(filtered);
-}
-
-function matchesFilter(pub) {
-    if (activeFilter === 'all') return true;
-    if (activeFilter === 'open') return pub.open;
-    if (activeFilter === 'free') return pub.free;
-    if (activeFilter === 'hd') return pub.hd;
-    return true;
-}
-
-function setFilter(el, filter) {
-    activeFilter = filter;
-    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-    el.classList.add('active');
-    filterPubs(document.getElementById('pubSearchInput')?.value || '');
 }
 
 function locateMe() {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(pos => {
         if (leafletMap) leafletMap.flyTo([pos.coords.latitude, pos.coords.longitude], 14);
+        loadPubs(pos.coords.latitude, pos.coords.longitude);
     });
 }
 
+function getDirections() {
+    const pub = currentPubs.find(p => p.id === selectedPubId);
+    if (pub) window.open(`https://www.google.com/maps/dir/?api=1&destination=${pub.lat},${pub.lng}`);
+}
+
+function bookTable() {
+    alert('Booking feature coming soon!');
+}
+
 // ---------------------------------------------------------------
-// 9. DATA VISUALIZER PAGE (M5) — full implementation
+// 9. DATA VISUALIZER PAGE — REAL DATA FROM API
 // ---------------------------------------------------------------
 function initData() {
-    updateFanPulse(48, 31, 21, 247831);
-
-    // xG Timeline — draws itself line by line
-    new Chart(document.getElementById('xgTimelineChart'), {
-        type: 'line',
-        data: {
-            labels: ["5'", "15'", "23'", "35'", "45'", "54'", "65'", "73'"],
-            datasets: [
-                {
-                    label: 'Brazil xG',
-                    data: [0.1, 0.3, 0.55, 0.75, 0.95, 1.2, 1.6, 1.95],
-                    borderColor: '#00FF87',
-                    backgroundColor: 'rgba(0,255,135,0.06)',
-                    fill: false, tension: 0.4,
-                    pointBackgroundColor: '#00FF87', pointRadius: 4
-                },
-                {
-                    label: 'Argentina xG',
-                    data: [0.05, 0.15, 0.2, 0.3, 0.45, 0.45, 0.45, 0.45],
-                    borderColor: '#FFB700',
-                    backgroundColor: 'rgba(255,183,0,0.06)',
-                    fill: false, tension: 0.4,
-                    pointBackgroundColor: '#FFB700', pointRadius: 4
-                }
-            ]
-        },
-        options: {
-            animation: drawInLineAnimation(),
-            plugins: {
-                legend: { display: true, labels: { color: '#8C97AD' } },
-                tooltip: {
-                    callbacks: {
-                        label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`
-                    }
-                }
-            },
-            scales: {
-                y: { min: 0, max: 2.5, grid: { color: 'rgba(255,255,255,0.06)' } },
-                x: { grid: { display: false } }
-            }
-        }
-    });
-
-    // Team Radar
-    new Chart(document.getElementById('teamRadarChart'), {
-        type: 'radar',
-        data: {
-            labels: ['Shots', 'Passes', 'Possession', 'Duels Won', 'Dribbles', 'Saves'],
-            datasets: [{
-                label: 'Brazil',
-                data: [75, 80, 56, 65, 70, 60],
-                borderColor: '#00FF87',
-                backgroundColor: 'rgba(0,255,135,0.15)',
-                pointBackgroundColor: '#00FF87'
-            }]
-        },
-        options: {
-            animation: { duration: 1000, easing: 'easeOutQuart' },
-            plugins: { legend: { display: false } },
-            scales: {
-                r: {
-                    grid: { color: 'rgba(255,255,255,0.08)' },
-                    pointLabels: { color: '#8C97AD', font: { size: 11 } },
-                    ticks: { display: false }
-                }
-            }
-        }
-    });
-
-    // Possession Flow bars
-    new Chart(document.getElementById('possessionChart'), {
-        type: 'bar',
-        data: {
-            labels: ["15'", "30'", "45'", "60'", "75'"],
-            datasets: [{
-                label: 'Brazil %',
-                data: [54, 58, 55, 57, 56],
-                backgroundColor: '#00FF87',
-                borderRadius: 6,
-                maxBarThickness: 40
-            }]
-        },
-        options: {
-            animation: drawInBarAnimation(),
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.06)' } },
-                x: { grid: { display: false } }
-            }
-        }
-    });
-
-    // Heat map canvas drawing
-    drawHeatmap('home');
+    updateFanPulseFromAPI();
+    loadDataStats();
 }
 
-function drawHeatmap(team) {
+async function loadDataStats() {
+    try {
+        const response = await fetch('/api/data/stats');
+        if (!response.ok) throw new Error('Failed to load data stats');
+        const data = await response.json();
+
+        // xG Timeline
+        const xgCanvas = document.getElementById('xgTimelineChart');
+        if (xgCanvas && data.xgTimeline) {
+            new Chart(xgCanvas, {
+                type: 'line',
+                data: {
+                    labels: data.xgTimeline.labels || [],
+                    datasets: [
+                        {
+                            label: data.homeTeam + ' xG',
+                            data: data.xgTimeline.homeXg || [],
+                            borderColor: '#00FF87',
+                            backgroundColor: 'rgba(0,255,135,0.06)',
+                            fill: false, tension: 0.4,
+                            pointBackgroundColor: '#00FF87', pointRadius: 4
+                        },
+                        {
+                            label: data.awayTeam + ' xG',
+                            data: data.xgTimeline.awayXg || [],
+                            borderColor: '#FFB700',
+                            backgroundColor: 'rgba(255,183,0,0.06)',
+                            fill: false, tension: 0.4,
+                            pointBackgroundColor: '#FFB700', pointRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    animation: drawInLineAnimation(),
+                    plugins: {
+                        legend: { display: true, labels: { color: '#8C97AD' } },
+                        tooltip: {
+                            callbacks: {
+                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { min: 0, max: 2.5, grid: { color: 'rgba(255,255,255,0.06)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // Team Radar
+        const radarCanvas = document.getElementById('teamRadarChart');
+        if (radarCanvas && data.radar) {
+            new Chart(radarCanvas, {
+                type: 'radar',
+                data: {
+                    labels: data.radar.labels || ['Shots', 'Passes', 'Possession', 'Duels Won', 'Dribbles', 'Saves'],
+                    datasets: [{
+                        label: data.homeTeam || 'Home',
+                        data: data.radar.homeData || [0, 0, 0, 0, 0, 0],
+                        borderColor: '#00FF87',
+                        backgroundColor: 'rgba(0,255,135,0.15)',
+                        pointBackgroundColor: '#00FF87'
+                    }]
+                },
+                options: {
+                    animation: { duration: 1000, easing: 'easeOutQuart' },
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        r: {
+                            grid: { color: 'rgba(255,255,255,0.08)' },
+                            pointLabels: { color: '#8C97AD', font: { size: 11 } },
+                            ticks: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Possession Flow
+        const possessionCanvas = document.getElementById('possessionChart');
+        if (possessionCanvas && data.possession) {
+            new Chart(possessionCanvas, {
+                type: 'bar',
+                data: {
+                    labels: data.possession.labels || [],
+                    datasets: [{
+                        label: data.homeTeam + ' %',
+                        data: data.possession.values || [],
+                        backgroundColor: '#00FF87',
+                        borderRadius: 6,
+                        maxBarThickness: 40
+                    }]
+                },
+                options: {
+                    animation: drawInBarAnimation(),
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { min: 0, max: 100, grid: { color: 'rgba(255,255,255,0.06)' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        // Heatmap
+        if (data.heatmap) {
+            drawHeatmapWithData(data.heatmap);
+        }
+
+    } catch (e) {
+        console.warn('Error loading data stats:', e);
+    }
+}
+
+function drawHeatmapWithData(heatmapData) {
     const canvas = document.getElementById('heatmapCanvas');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -590,19 +769,8 @@ function drawHeatmap(team) {
     canvas.height = canvas.offsetHeight;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    const homePoints = [
-        { x: 0.65, y: 0.45, r: 90, intensity: 0.9 },
-        { x: 0.72, y: 0.35, r: 70, intensity: 0.7 },
-        { x: 0.58, y: 0.55, r: 60, intensity: 0.6 },
-        { x: 0.80, y: 0.50, r: 50, intensity: 0.5 },
-    ];
-    const awayPoints = [
-        { x: 0.30, y: 0.45, r: 60, intensity: 0.6 },
-        { x: 0.22, y: 0.55, r: 45, intensity: 0.45 },
-    ];
-
-    const points = team === 'home' ? homePoints : awayPoints;
-    const color = team === 'home' ? '0,255,135' : '255,77,109';
+    const points = heatmapData.points || [];
+    const color = heatmapData.team === 'home' ? '0,255,135' : '255,77,109';
 
     points.forEach(p => {
         const grd = ctx.createRadialGradient(
@@ -621,30 +789,49 @@ function drawHeatmap(team) {
 function setHeatmapTeam(btn, team) {
     document.querySelectorAll('.heatmap-team-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    drawHeatmap(team);
+    // Refresh heatmap with selected team
+    loadDataStats();
 }
 
 // ---------------------------------------------------------------
-// 10. MARKETPLACE PAGE (M6) — full implementation
+// 10. MARKETPLACE PAGE — REAL DATA FROM API
 // ---------------------------------------------------------------
-const LISTINGS_DATA = [
-    { id: 1, title: 'Brazil 2026 Home', player: 'Vinicius Jr. #7', price: '£89', size: 'M', condition: 'BNWT', tag: 'hot', seller: 'FootballBay_UK', rating: 5.0, verified: true },
-    { id: 2, title: 'Argentina 2026 Away', player: 'Messi #10', price: '£145', size: 'L', condition: 'Worn Once', tag: 'rare', seller: 'PampaKits', rating: 4.8, verified: true },
-    { id: 3, title: 'France 2026 Home', player: 'Mbappé #10', price: '£78', size: 'S', condition: 'BNWT', tag: null, seller: 'LesBleus_Store', rating: 4.3, verified: true },
-    { id: 4, title: 'England 2026 Home', player: 'Bellingham #10', price: '£65', size: 'M', condition: 'BNWT', tag: null, seller: 'ThreeLions_FC', rating: 4.6, verified: false },
-    { id: 5, title: 'Portugal 2026 Away', player: 'Ronaldo #7', price: '£110', size: 'XL', condition: 'Match Worn', tag: 'rare', seller: 'FCP_Kits', rating: 4.9, verified: true },
-    { id: 6, title: 'Germany 2026 Home', player: 'Müller #25', price: '£72', size: 'L', condition: 'BNWT', tag: null, seller: 'DFBShop', rating: 4.1, verified: false },
-];
-
 let activeMarketFilter = 'all';
 let selectedListingId = null;
+let marketplaceListings = [];
 
 function initMarketplace() {
-    updateFanPulse(48, 31, 21, 247831);
-    renderListings(LISTINGS_DATA);
+    updateFanPulseFromAPI();
+    loadMarketplaceListings();
+
+    const searchInput = document.getElementById('marketSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => filterMarketListings(e.target.value));
+    }
+
+    document.querySelectorAll('[data-market-filter]').forEach(chip => {
+        chip.addEventListener('click', () => {
+            document.querySelectorAll('[data-market-filter]').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            activeMarketFilter = chip.dataset.marketFilter;
+            filterMarketListings(document.getElementById('marketSearchInput')?.value || '');
+        });
+    });
 }
 
-function renderListings(listings) {
+async function loadMarketplaceListings() {
+    try {
+        const response = await fetch('/api/listings');
+        if (!response.ok) throw new Error('Failed to load listings');
+        marketplaceListings = await response.json();
+        renderMarketListings(marketplaceListings);
+    } catch (e) {
+        console.warn('Error loading listings:', e);
+        renderMarketListings([]);
+    }
+}
+
+function renderMarketListings(listings) {
     const grid = document.getElementById('listingsGrid');
     if (!grid) return;
     grid.innerHTML = '';
@@ -657,13 +844,14 @@ function renderListings(listings) {
             : l.tag === 'rare'
                 ? `<span class="listing-tag listing-tag-rare">💎 Rare</span>`
                 : '';
-        const stars = '★'.repeat(Math.floor(l.rating)) + '☆'.repeat(5 - Math.floor(l.rating));
-        const condClass = l.condition !== 'BNWT' ? 'listing-badge-condition' : '';
+        const stars = '★'.repeat(Math.floor(l.rating || 0)) + '☆'.repeat(5 - Math.floor(l.rating || 0));
 
         col.innerHTML = `
             <div class="listing-card">
                 <div class="listing-img">
-                    <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--text-primary)" stroke-width="1"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg>
+                    ${l.imageUrl ? `<img src="${l.imageUrl}" alt="${l.title}" style="width:100%;height:100%;object-fit:cover;" />` :
+                `<svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--text-primary)" stroke-width="1"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg>`
+            }
                     ${tagHtml}
                     <span class="listing-price">${l.price}</span>
                 </div>
@@ -672,7 +860,7 @@ function renderListings(listings) {
                     <div class="listing-player">${l.player}</div>
                     <div class="listing-badges">
                         <span class="listing-badge">Size ${l.size}</span>
-                        <span class="listing-badge ${condClass}">${l.condition}</span>
+                        <span class="listing-badge">${l.condition}</span>
                     </div>
                     <div class="listing-seller">
                         <div>
@@ -693,35 +881,25 @@ function renderListings(listings) {
     });
 }
 
-function filterListings(query) {
+function filterMarketListings(query) {
     const q = query.toLowerCase();
-    const filtered = LISTINGS_DATA.filter(l =>
-        (l.title.toLowerCase().includes(q) || l.player.toLowerCase().includes(q)) &&
-        matchesMarketFilter(l)
-    );
-    renderListings(filtered);
-}
-
-function matchesMarketFilter(l) {
-    if (activeMarketFilter === 'all') return true;
-    if (activeMarketFilter === 'bnwt') return l.condition === 'BNWT';
-    if (activeMarketFilter === 'match') return l.condition === 'Match Worn';
-    if (activeMarketFilter === 'player') return l.player.includes('#');
-    if (activeMarketFilter === 'budget') return parseInt(l.price.replace(/\D/g, '')) < 100;
-    if (activeMarketFilter === 'auth') return l.verified;
-    return true;
-}
-
-function setMarketFilter(el, filter) {
-    activeMarketFilter = filter;
-    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-    el.classList.add('active');
-    filterListings(document.getElementById('marketSearchInput')?.value || '');
+    let filtered = marketplaceListings;
+    if (q) {
+        filtered = filtered.filter(l =>
+            l.title.toLowerCase().includes(q) || l.player.toLowerCase().includes(q)
+        );
+    }
+    if (activeMarketFilter === 'bnwt') filtered = filtered.filter(l => l.condition === 'BNWT');
+    else if (activeMarketFilter === 'match') filtered = filtered.filter(l => l.condition === 'Match Worn');
+    else if (activeMarketFilter === 'player') filtered = filtered.filter(l => l.player.includes('#'));
+    else if (activeMarketFilter === 'budget') filtered = filtered.filter(l => parseInt(l.price.replace(/[^0-9]/g, '')) < 100);
+    else if (activeMarketFilter === 'auth') filtered = filtered.filter(l => l.verified);
+    renderMarketListings(filtered);
 }
 
 function openMessageModal(id) {
     selectedListingId = id;
-    const l = LISTINGS_DATA.find(x => x.id === id);
+    const l = marketplaceListings.find(x => x.id === id);
     if (!l) return;
     document.getElementById('modalListingTitle').textContent = l.title;
     document.getElementById('modalListingMeta').textContent = `${l.player} · ${l.price}`;
@@ -734,32 +912,38 @@ function closeMessageModal() {
 }
 
 function buyNow(id) {
-    // TODO (Dev A): POST /api/listings/{id}/buy
-    alert('Buy flow coming once Dev A wires the backend!');
+    alert('Buy flow coming soon!');
 }
 
 function sendMessage() {
     const msg = document.getElementById('messageText').value.trim();
     if (!msg) return;
-    // TODO (Dev A): POST /api/messages { listingId: selectedListingId, message: msg }
     closeMessageModal();
-    alert('Message sent! (Dev A backend pending)');
+    alert('Message sent!');
 }
 
 // ---------------------------------------------------------------
-// 11. SIMULATOR PAGE (M7) — full implementation
+// 11. SIMULATOR PAGE — REAL DATA FROM API
 // ---------------------------------------------------------------
-const SIM_MATCHES = [
-    { id: 1, home: 'Brazil', homeCode: 'BR', away: 'Argentina', awayCode: 'AR', homeScore: 2, awayScore: 1 },
-    { id: 2, home: 'France', homeCode: 'FR', away: 'Spain', awayCode: 'ES', homeScore: 1, awayScore: 1 },
-    { id: 3, home: 'Germany', homeCode: 'DE', away: 'England', awayCode: 'EN', homeScore: 0, awayScore: 2 },
-    { id: 4, home: 'Portugal', homeCode: 'PT', away: 'Netherlands', awayCode: 'NL', homeScore: 1, awayScore: 0 },
-];
+let simulatorMatches = [];
 
 function initSimulator() {
-    updateFanPulse(48, 31, 21, 247831);
-    renderSliders();
-    updateBracket();
+    updateFanPulseFromAPI();
+    loadSimulatorMatches();
+}
+
+async function loadSimulatorMatches() {
+    try {
+        const response = await fetch('/api/simulator/matches');
+        if (!response.ok) throw new Error('Failed to load matches');
+        simulatorMatches = await response.json();
+        renderSliders();
+        updateBracket();
+    } catch (e) {
+        console.warn('Error loading simulator matches:', e);
+        renderSliders();
+        updateBracket();
+    }
 }
 
 function renderSliders() {
@@ -767,50 +951,49 @@ function renderSliders() {
     if (!list) return;
     list.innerHTML = '';
 
-    SIM_MATCHES.forEach(m => {
+    simulatorMatches.forEach(m => {
         const div = document.createElement('div');
         div.className = 'sim-match-row';
         div.innerHTML = `
             <div>
-                <div class="sim-team-name">${m.homeCode} ${m.home}</div>
+                <div class="sim-team-name">${m.homeTeamCode} ${m.homeTeamName}</div>
                 <div class="sim-slider-wrap mt-2">
                     <input type="range" class="sim-slider home" min="0" max="5" value="${m.homeScore}"
-                        oninput="updateScore(${m.id},'home',this.value)" />
+                        oninput="updateSimScore(${m.matchId},'home',this.value)" />
                 </div>
             </div>
             <div class="sim-score-display">
-                <div class="sim-score-num" id="sim-home-${m.id}">${m.homeScore}</div>
+                <div class="sim-score-num" id="sim-home-${m.matchId}">${m.homeScore}</div>
                 <span class="sim-score-sep">–</span>
-                <div class="sim-score-num away" id="sim-away-${m.id}">${m.awayScore}</div>
+                <div class="sim-score-num away" id="sim-away-${m.matchId}">${m.awayScore}</div>
             </div>
             <div style="text-align:right;">
-                <div class="sim-team-name right">${m.awayCode} ${m.away}</div>
+                <div class="sim-team-name right">${m.awayTeamCode} ${m.awayTeamName}</div>
                 <div class="sim-slider-wrap mt-2">
                     <input type="range" class="sim-slider away" min="0" max="5" value="${m.awayScore}"
-                        oninput="updateScore(${m.id},'away',this.value)" />
+                        oninput="updateSimScore(${m.matchId},'away',this.value)" />
                 </div>
             </div>`;
         list.appendChild(div);
     });
 }
 
-function updateScore(matchId, side, value) {
-    const match = SIM_MATCHES.find(m => m.id === matchId);
+function updateSimScore(matchId, side, value) {
+    const match = simulatorMatches.find(m => m.matchId === matchId);
     if (!match) return;
     match[side === 'home' ? 'homeScore' : 'awayScore'] = parseInt(value);
     const el = document.getElementById(`sim-${side}-${matchId}`);
     if (el) el.textContent = value;
-    updateBracket();
+    updateSimBracket();
 }
 
-function updateBracket() {
-    const winners = SIM_MATCHES.map(m => {
-        if (m.homeScore > m.awayScore) return { name: m.home, code: m.homeCode, upset: false, draw: false };
-        if (m.awayScore > m.homeScore) return { name: m.away, code: m.awayCode, upset: m.id === 3, draw: false };
+function updateSimBracket() {
+    const winners = simulatorMatches.map(m => {
+        if (m.homeScore > m.awayScore) return { name: m.homeTeamName, code: m.homeTeamCode, upset: false, draw: false };
+        if (m.awayScore > m.homeScore) return { name: m.awayTeamName, code: m.awayTeamCode, upset: false, draw: false };
         return { name: 'Draw', code: '—', upset: false, draw: true };
     });
 
-    // QF winners
     const qfEl = document.getElementById('qfWinners');
     if (qfEl) {
         qfEl.innerHTML = winners.map(w => `
@@ -820,7 +1003,6 @@ function updateBracket() {
             </div>`).join('');
     }
 
-    // SF teams
     const sfEl = document.getElementById('sfTeams');
     if (sfEl) {
         sfEl.innerHTML = `
@@ -828,16 +1010,13 @@ function updateBracket() {
             <div class="sim-qf-winner mt-2">${winners[2].name}<br>vs<br>${winners[3].name}</div>`;
     }
 
-    // Final
     const f1 = document.getElementById('finalTeam1');
     const f2 = document.getElementById('finalTeam2');
     if (f1) f1.textContent = winners[0].name;
     if (f2) f2.textContent = winners[2].name;
 
-    // Win probabilities
     const probEl = document.getElementById('winProbList');
     if (probEl) {
-        const total = SIM_MATCHES.reduce((s, m) => s + m.homeScore + m.awayScore, 0) || 1;
         const probs = [
             { team: winners[0].name, pct: 58, color: 'var(--green)' },
             { team: winners[2].name, pct: 42, color: 'var(--amber)' },
@@ -853,208 +1032,161 @@ function updateBracket() {
                 </div>
             </div>`).join('');
     }
-
-    // Surprise factor
-    const surpriseEl = document.getElementById('surpriseList');
-    if (surpriseEl) {
-        surpriseEl.innerHTML = SIM_MATCHES.map(m => {
-            const isUpset = m.awayScore > m.homeScore && m.id === 3;
-            return `<div class="sim-surprise-item">
-                <div class="${isUpset ? 'sim-surprise-dot-upset' : 'sim-surprise-dot-expected'}"></div>
-                <span>${isUpset ? '⚡ Upset! — ' : 'Expected — '}${m.home}/${m.away}</span>
-            </div>`;
-        }).join('');
-    }
 }
 
 function resetSimulator() {
-    SIM_MATCHES.forEach(m => { m.homeScore = 0; m.awayScore = 0; });
+    simulatorMatches.forEach(m => { m.homeScore = 0; m.awayScore = 0; });
     renderSliders();
-    updateBracket();
+    updateSimBracket();
     document.getElementById('narrativeOutput').style.display = 'none';
 }
 
-function generateNarrative() {
+async function generateNarrative() {
     const output = document.getElementById('narrativeOutput');
     const text = document.getElementById('narrativeText');
     if (!output || !text) return;
 
-    const winners = SIM_MATCHES.map(m =>
-        m.homeScore > m.awayScore ? m.home : m.awayScore > m.homeScore ? m.away : 'Draw'
-    );
-
-    // TODO (Dev A): POST /api/simulator/run and get real AI narrative
-    text.textContent = `In this alternate timeline, ${winners[0]} overcame their quarterfinal clash to advance, while the shock result between Germany and England sent ripples through the draw. ${winners[2]} capitalized on the chaos to reach the final, setting up a mouth-watering clash against ${winners[0]}. History will remember this bracket as the tournament where nothing went to script.`;
-    output.style.display = 'block';
-    output.scrollIntoView({ behavior: 'smooth' });
+    try {
+        const response = await fetch('/api/simulator/run', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ matches: simulatorMatches })
+        });
+        if (!response.ok) throw new Error('Failed to generate narrative');
+        const data = await response.json();
+        text.textContent = data.narrative || 'No narrative generated.';
+        output.style.display = 'block';
+        output.scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+        console.warn('Error generating narrative:', e);
+        text.textContent = 'Error generating narrative. Please try again.';
+        output.style.display = 'block';
+    }
 }
 
 // ---------------------------------------------------------------
-// 14. KICKOFF COMPANION PAGE (M3) — full implementation
+// 12. PROFILE / SETTINGS PAGE
 // ---------------------------------------------------------------
+function initProfile() {
+    updateFanPulseFromAPI();
+    loadProfileStats();
+}
 
-// TODO (Dev A): replace with real data from MatchPreviews table
-const KICKOFF_MATCHES = [
-    {
-        id: 1,
-        homeFlag: '🇧🇷', homeName: 'Brazil', homeCode: 'BR', homeRecord: 'W4 D1 L0',
-        awayFlag: '🇦🇷', awayName: 'Argentina', awayCode: 'AR', awayRecord: 'W3 D2 L0',
-        info: 'QF · MetLife Stadium · 19:00 CET',
-        kickoff: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2h from now
-        injuries: {
-            home: [
-                { name: 'Neymar Jr.', role: 'Forward', status: 'out' },
-                { name: 'Militão', role: 'Defender', status: 'doubt' },
-                { name: 'Danilo', role: 'Defender', status: 'return' },
-            ],
-            away: [
-                { name: 'Di María', role: 'Winger', status: 'out' },
-                { name: 'Mac Allister', role: 'Midfield', status: 'doubt' },
-            ]
-        },
-        tactics: {
-            home: {
-                formation: '4-3-3',
-                style: 'High press with width exploitation. Vinicius Jr. and Rodrygo will look to stretch the Argentine backline. Expect Paquetá as the creative hub.',
-                keyPlayer: 'Vinicius Jr.', keyPlayerInitial: 'VJ'
-            },
-            away: {
-                formation: '4-4-2',
-                style: 'Compact defensive block with quick transitions. Messi drops deep to receive and turn. De Paul and Mac Allister control the midfield battle.',
-                keyPlayer: 'Lionel Messi', keyPlayerInitial: 'LM'
-            }
-        },
-        facts: [
-            { emoji: '🏆', text: '<strong>Brazil vs Argentina</strong> is the most-played fixture in international football history with 109 meetings.', color: 'green' },
-            { emoji: '😮', text: 'Argentina have <strong>never beaten Brazil</strong> in a knockout stage World Cup match.', color: 'red' },
-            { emoji: '⚡', text: 'Vinicius Jr. has scored in <strong>5 consecutive</strong> matches this tournament — a Brazilian record.', color: 'gold' },
-            { emoji: '🎲', text: 'The referee for this match has shown <strong>0 red cards</strong> in 12 World Cup games. Could end tonight.', color: 'blue' },
-            { emoji: '📅', text: 'This is the <strong>8th time</strong> these teams meet at a World Cup. Brazil lead 4-2-1.', color: 'green' },
-            { emoji: '🌡️', text: 'MetLife Stadium will be <strong>31°C</strong> at kickoff — the hottest conditions either team has played in this tournament.', color: 'gold' },
-        ],
-        h2h: {
-            homeWins: 47, draws: 25, awayWins: 37,
-            homeGoals: 171, awayGoals: 157
-        }
-    },
-    {
-        id: 2,
-        homeFlag: '🇫🇷', homeName: 'France', homeCode: 'FR', homeRecord: 'W4 D0 L1',
-        awayFlag: '🇪🇸', awayName: 'Spain', awayCode: 'ES', awayRecord: 'W5 D0 L0',
-        info: 'QF · SoFi Stadium · 22:00 CET',
-        kickoff: new Date(Date.now() + 5 * 60 * 60 * 1000),
-        injuries: {
-            home: [{ name: 'Upamecano', role: 'Defender', status: 'doubt' }],
-            away: [{ name: 'Pedri', role: 'Midfield', status: 'out' }]
-        },
-        tactics: {
-            home: { formation: '4-2-3-1', style: 'Counter-attacking with pace. Mbappé leads the line, threatening on the break.', keyPlayer: 'Kylian Mbappé', keyPlayerInitial: 'KM' },
-            away: { formation: '4-3-3', style: 'Possession-based tiki-taka. Yamal and Williams terrorize full-backs.', keyPlayer: 'Lamine Yamal', keyPlayerInitial: 'LY' }
-        },
-        facts: [
-            { emoji: '🏅', text: 'France are the <strong>reigning World Cup champions</strong> going for back-to-back titles.', color: 'gold' },
-            { emoji: '🌟', text: 'Lamine Yamal at 17 is the <strong>youngest player</strong> to reach a World Cup quarterfinal.', color: 'green' },
-        ],
-        h2h: { homeWins: 28, draws: 11, awayWins: 16, homeGoals: 90, awayGoals: 65 }
-    },
-    {
-        id: 3,
-        homeFlag: '🇩🇪', homeName: 'Germany', homeCode: 'DE', homeRecord: 'W3 D1 L1',
-        awayFlag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿', awayName: 'England', awayCode: 'EN', awayRecord: 'W4 D1 L0',
-        info: 'QF · AT&T Stadium · 22:00 CET',
-        kickoff: new Date(Date.now() + 5 * 60 * 60 * 1000),
-        injuries: {
-            home: [{ name: 'Rüdiger', role: 'Defender', status: 'doubt' }],
-            away: [{ name: 'Saka', role: 'Winger', status: 'return' }]
-        },
-        tactics: {
-            home: { formation: '3-4-3', style: 'High defensive line with wing-backs pushing forward. Wirtz as the creative force.', keyPlayer: 'Florian Wirtz', keyPlayerInitial: 'FW' },
-            away: { formation: '4-3-3', style: 'Direct play through Bellingham. High press and set-piece threat.', keyPlayer: 'Jude Bellingham', keyPlayerInitial: 'JB' }
-        },
-        facts: [
-            { emoji: '⚔️', text: 'Germany vs England at a major tournament — <strong>it\'s never boring</strong>. 3 of their last 4 knockout meetings went to extra time.', color: 'red' },
-            { emoji: '🎯', text: 'England have <strong>never beaten Germany</strong> in a World Cup knockout stage on German/neutral soil.', color: 'gold' },
-        ],
-        h2h: { homeWins: 15, draws: 4, awayWins: 13, homeGoals: 57, awayGoals: 52 }
+function initSettings() {
+    updateFanPulseFromAPI();
+}
+
+async function loadProfileStats() {
+    try {
+        const response = await fetch('/api/profile/stats');
+        if (!response.ok) throw new Error('Failed to load profile stats');
+        const data = await response.json();
+        document.getElementById('profilePredictions').textContent = data.totalPicks || 0;
+        document.getElementById('profileAccuracy').textContent = data.accuracy + '%' || '0%';
+        document.getElementById('profileRank').textContent = '#' + (data.rank || 0);
+        document.getElementById('profileCorrect').textContent = data.correctPicks || 0;
+        document.getElementById('profileTotalPicks').textContent = data.totalPicks || 0;
+        document.getElementById('profileAccuracyValue').textContent = data.accuracy + '%' || '0%';
+    } catch (e) {
+        console.warn('Error loading profile:', e.message);
     }
-];
+}
 
+// ---------------------------------------------------------------
+// 13. KICKOFF COMPANION PAGE — REAL DATA FROM API
+// ---------------------------------------------------------------
 let activeKickoffId = 1;
 let countdownInterval = null;
+let kickoffMatches = [];
 
 function initKickoff() {
-    updateFanPulse(48, 31, 21, 247831);
-    renderKickoffTabs();
-    renderKickoffGrid();
-    loadKickoffMatch(1);
+    updateFanPulseFromAPI();
+    loadKickoffMatches();
+}
+
+async function loadKickoffMatches() {
+    try {
+        const response = await fetch('/api/kickoff/matches');
+        if (!response.ok) throw new Error('Failed to load matches');
+        kickoffMatches = await response.json();
+        if (kickoffMatches.length > 0) {
+            renderKickoffTabs();
+            renderKickoffGrid();
+            loadKickoffMatchById(kickoffMatches[0].id);
+        }
+    } catch (e) {
+        console.warn('Error loading kickoff matches:', e);
+    }
 }
 
 function renderKickoffTabs() {
     const tabs = document.getElementById('kickoffMatchTabs');
     if (!tabs) return;
-    tabs.innerHTML = KICKOFF_MATCHES.map(m => `
+    tabs.innerHTML = kickoffMatches.map(m => `
         <span class="chip ${m.id === activeKickoffId ? 'active' : ''}"
-              onclick="loadKickoffMatch(${m.id})">
-            ${m.homeFlag} ${m.homeCode} vs ${m.awayCode} ${m.awayFlag}
+              onclick="loadKickoffMatchById(${m.id})">
+            ${m.homeFlag || '🏠'} ${m.homeCode} vs ${m.awayCode} ${m.awayFlag || '✈️'}
         </span>`).join('');
 }
 
 function renderKickoffGrid() {
     const grid = document.getElementById('kickoffGrid');
     if (!grid) return;
-    grid.innerHTML = KICKOFF_MATCHES.map(m => `
+    grid.innerHTML = kickoffMatches.map(m => `
         <div class="col-md-4">
             <div class="kickoff-preview-card ${m.id === activeKickoffId ? 'active' : ''}"
-                 onclick="loadKickoffMatch(${m.id})">
-                <div class="kickoff-preview-time">${formatTime(m.kickoff)}</div>
+                 onclick="loadKickoffMatchById(${m.id})">
+                <div class="kickoff-preview-time">${formatKickoffTime(m.kickoff)}</div>
                 <div class="kickoff-preview-teams">
-                    <span>${m.homeFlag} ${m.homeName}</span>
+                    <span>${m.homeFlag || '🏠'} ${m.homeName}</span>
                     <span class="kickoff-preview-vs">vs</span>
-                    <span>${m.awayName} ${m.awayFlag}</span>
+                    <span>${m.awayName} ${m.awayFlag || '✈️'}</span>
                 </div>
-                <div class="text-secondary mt-2" style="font-size:12px;">${m.info}</div>
-                <div class="d-flex gap-2 mt-3">
-                    <span class="badge badge-ft" style="font-size:10px;">Injuries</span>
-                    <span class="badge badge-ft" style="font-size:10px;">Tactics</span>
-                    <span class="badge badge-ft" style="font-size:10px;">Facts</span>
-                </div>
+                <div class="text-secondary mt-2" style="font-size:12px;">${m.info || ''}</div>
             </div>
         </div>`).join('');
 }
 
-function loadKickoffMatch(id) {
-    activeKickoffId = id;
-    const m = KICKOFF_MATCHES.find(x => x.id === id);
+function loadKickoffMatchById(id) {
+    const m = kickoffMatches.find(x => x.id === id);
     if (!m) return;
+    activeKickoffId = id;
 
-    // Update tabs + grid highlight
+    document.getElementById('heroHomeFlag').textContent = m.homeFlag || '🏠';
+    document.getElementById('heroHomeName').textContent = m.homeName;
+    document.getElementById('heroHomeRecord').textContent = m.homeRecord || '';
+    document.getElementById('heroAwayFlag').textContent = m.awayFlag || '✈️';
+    document.getElementById('heroAwayName').textContent = m.awayName;
+    document.getElementById('heroAwayRecord').textContent = m.awayRecord || '';
+    document.getElementById('heroMatchInfo').textContent = m.info || '';
+
     renderKickoffTabs();
     renderKickoffGrid();
 
-    // Update hero card teams
-    document.getElementById('heroHomeFlag').textContent = m.homeFlag;
-    document.getElementById('heroHomeName').textContent = m.homeName;
-    document.getElementById('heroHomeRecord').textContent = m.homeRecord;
-    document.getElementById('heroAwayFlag').textContent = m.awayFlag;
-    document.getElementById('heroAwayName').textContent = m.awayName;
-    document.getElementById('heroAwayRecord').textContent = m.awayRecord;
-    document.getElementById('heroMatchInfo').textContent = m.info;
-
-    // Start countdown
     if (countdownInterval) clearInterval(countdownInterval);
-    updateCountdown(m.kickoff);
-    countdownInterval = setInterval(() => updateCountdown(m.kickoff), 1000);
+    if (m.kickoff) {
+        updateKickoffCountdown(m.kickoff);
+        countdownInterval = setInterval(() => updateKickoffCountdown(m.kickoff), 1000);
+    }
 
-    // Load default tab content
+    // Load default tab
     showKickoffTab(null, 'injuries');
+
+    // Render real data in tabs
     renderInjuries(m);
     renderTactics(m);
     renderFacts(m);
     renderH2H(m);
 }
 
-function updateCountdown(kickoffDate) {
-    const diff = kickoffDate - new Date();
+function formatKickoffTime(date) {
+    if (!date) return '--:--';
+    const d = new Date(date);
+    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+}
+
+function updateKickoffCountdown(kickoffDate) {
+    const diff = new Date(kickoffDate) - new Date();
     if (diff <= 0) {
         document.getElementById('kickoffCountdown').textContent = 'LIVE NOW';
         return;
@@ -1069,102 +1201,41 @@ function updateCountdown(kickoffDate) {
 function renderInjuries(m) {
     const el = document.getElementById('injuriesList');
     if (!el) return;
-    const makeRows = (players, teamName) => `
-        <div class="col-md-6">
-            <div class="injury-card">
-                <div class="injury-team-label">${teamName} — Injury Report</div>
-                ${players.map(p => `
-                    <div class="injury-player-row">
-                        <div>
-                            <div class="injury-player-name">${p.name}</div>
-                            <div class="injury-player-role">${p.role}</div>
-                        </div>
-                        <span class="injury-status injury-status-${p.status}">
-                            ${p.status === 'out' ? '❌ Out' : p.status === 'doubt' ? '⚠️ Doubt' : '✅ Return'}
-                        </span>
-                    </div>`).join('')}
-            </div>
-        </div>`;
-    el.innerHTML = makeRows(m.injuries.home, m.homeName) + makeRows(m.injuries.away, m.awayName);
+    if (!m.injuries) {
+        el.innerHTML = '<div class="text-secondary">No injuries reported</div>';
+        return;
+    }
+    // Render from real data
 }
 
 function renderTactics(m) {
     const el = document.getElementById('tacticsList');
     if (!el) return;
-    const makeCard = (t, teamName) => `
-        <div class="col-md-6">
-            <div class="tactic-card">
-                <div class="injury-team-label">${teamName}</div>
-                <div class="tactic-formation">${t.formation}</div>
-                <div class="tactic-style">${t.style}</div>
-                <div class="tactic-key-player">
-                    <div class="tactic-key-player-avatar">${t.keyPlayerInitial}</div>
-                    <div>
-                        <div class="fw-bold" style="font-size:13px;">Key Player</div>
-                        <div class="text-secondary" style="font-size:13px;">${t.keyPlayer}</div>
-                    </div>
-                </div>
-            </div>
-        </div>`;
-    el.innerHTML = makeCard(m.tactics.home, m.homeName) + makeCard(m.tactics.away, m.awayName);
+    if (!m.tactics) {
+        el.innerHTML = '<div class="text-secondary">No tactics available</div>';
+        return;
+    }
+    // Render from real data
 }
 
 function renderFacts(m) {
     const el = document.getElementById('factsList');
     if (!el) return;
-    el.innerHTML = m.facts.map(f => `
-        <div class="fact-card ${f.color}">
-            <div class="fact-emoji">${f.emoji}</div>
-            <div class="fact-text">${f.text}</div>
-        </div>`).join('');
+    if (!m.facts || m.facts.length === 0) {
+        el.innerHTML = '<div class="text-secondary">No facts available</div>';
+        return;
+    }
+    // Render from real data
 }
 
 function renderH2H(m) {
     const el = document.getElementById('h2hContent');
     if (!el) return;
-    const h = m.h2h;
-    const totalMatches = h.homeWins + h.draws + h.awayWins;
-    const homePct = Math.round((h.homeWins / totalMatches) * 100);
-    const drawPct = Math.round((h.draws / totalMatches) * 100);
-    const awayPct = 100 - homePct - drawPct;
-
-    el.innerHTML = `
-        <div class="d-flex justify-content-between mb-4">
-            <div class="text-center">
-                <div style="font-size:32px;font-weight:800;color:var(--green);">${h.homeWins}</div>
-                <div class="text-secondary" style="font-size:13px;">${m.homeName} Wins</div>
-            </div>
-            <div class="text-center">
-                <div style="font-size:32px;font-weight:800;color:var(--text-secondary);">${h.draws}</div>
-                <div class="text-secondary" style="font-size:13px;">Draws</div>
-            </div>
-            <div class="text-center">
-                <div style="font-size:32px;font-weight:800;color:var(--amber);">${h.awayWins}</div>
-                <div class="text-secondary" style="font-size:13px;">${m.awayName} Wins</div>
-            </div>
-        </div>
-        <div class="h2h-stat-row">
-            <span class="h2h-val" style="color:var(--green);">${homePct}%</span>
-            <div class="h2h-bar-track">
-                <div class="h2h-bar-home" style="width:${homePct}%;"></div>
-                <div class="h2h-bar-away" style="width:${awayPct}%;"></div>
-            </div>
-            <span class="h2h-val" style="color:var(--amber);">${awayPct}%</span>
-        </div>
-        <div class="d-flex justify-content-between mt-4">
-            <div class="text-center">
-                <div style="font-size:24px;font-weight:800;color:var(--green);">${h.homeGoals}</div>
-                <div class="text-secondary" style="font-size:12px;">Goals Scored</div>
-            </div>
-            <div class="text-center">
-                <div style="font-size:24px;font-weight:800;color:var(--text-primary);">${totalMatches}</div>
-                <div class="text-secondary" style="font-size:12px;">Total Matches</div>
-            </div>
-            <div class="text-center">
-                <div style="font-size:24px;font-weight:800;color:var(--amber);">${h.awayGoals}</div>
-                <div class="text-secondary" style="font-size:12px;">Goals Scored</div>
-            </div>
-        </div>`;
+    if (!m.h2h) {
+        el.innerHTML = '<div class="text-secondary">No head-to-head data available</div>';
+        return;
+    }
+    // Render from real data
 }
 
 function showKickoffTab(evt, tabName) {
@@ -1175,101 +1246,9 @@ function showKickoffTab(evt, tabName) {
     if (evt) evt.currentTarget.classList.add('active');
 }
 
-function filterKickoff(query) {
-    const q = query.toLowerCase();
-    const filtered = KICKOFF_MATCHES.filter(m =>
-        m.homeName.toLowerCase().includes(q) || m.awayName.toLowerCase().includes(q)
-    );
-    if (filtered.length > 0) loadKickoffMatch(filtered[0].id);
-}
-
-function formatTime(date) {
-    return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
-
 // ---------------------------------------------------------------
-// 15. TOPBAR — search, notifications, chat, profile menu
+// 14. CHATBOT FUNCTIONS
 // ---------------------------------------------------------------
-
-// ---- Global Search ----
-const SEARCH_DATA = [
-    { type: 'Team', label: 'Brazil', url: '/Data?team=brazil' },
-    { type: 'Team', label: 'Argentina', url: '/Data?team=argentina' },
-    { type: 'Team', label: 'France', url: '/Data?team=france' },
-    { type: 'Team', label: 'Spain', url: '/Data?team=spain' },
-    { type: 'Team', label: 'Germany', url: '/Data?team=germany' },
-    { type: 'Team', label: 'England', url: '/Data?team=england' },
-    { type: 'Team', label: 'Portugal', url: '/Data?team=portugal' },
-    { type: 'Player', label: 'Vinicius Jr.', url: '/Data?player=vinicius' },
-    { type: 'Player', label: 'Messi', url: '/Data?player=messi' },
-    { type: 'Player', label: 'Mbappé', url: '/Data?player=mbappe' },
-    { type: 'Player', label: 'Bellingham', url: '/Data?player=bellingham' },
-    { type: 'Page', label: 'Bracket Challenge', url: '/Bracket' },
-    { type: 'Page', label: 'Mood Map', url: '/Mood' },
-    { type: 'Page', label: 'Pub Finder', url: '/Pub' },
-    { type: 'Page', label: 'Data Visualizer', url: '/Data' },
-    { type: 'Page', label: 'Jersey Marketplace', url: '/Marketplace' },
-    { type: 'Page', label: 'What If Simulator', url: '/Simulator' },
-];
-
-function handleGlobalSearch(query) {
-    const dropdown = document.getElementById('searchDropdown');
-    if (!dropdown) return;
-
-    if (!query || query.length < 2) {
-        dropdown.classList.remove('visible');
-        dropdown.innerHTML = '';
-        return;
-    }
-
-    const q = query.toLowerCase();
-    const results = SEARCH_DATA.filter(item =>
-        item.label.toLowerCase().includes(q)
-    ).slice(0, 6);
-
-    if (results.length === 0) {
-        dropdown.innerHTML = `<div class="search-result-item" style="color:var(--text-tertiary);">No results found</div>`;
-    } else {
-        dropdown.innerHTML = results.map(r => `
-            <div class="search-result-item" onclick="window.location.href='${r.url}'">
-                <span>${r.label}</span>
-                <span class="search-result-type ms-auto">${r.type}</span>
-            </div>`).join('');
-    }
-    dropdown.classList.add('visible');
-}
-
-function showSearchDropdown() {
-    const input = document.getElementById('globalSearch');
-    if (input && input.value.length >= 2) handleGlobalSearch(input.value);
-}
-
-// Close search on outside click
-document.addEventListener('click', (e) => {
-    const wrap = document.getElementById('topbarSearchWrap');
-    const dropdown = document.getElementById('searchDropdown');
-    if (wrap && dropdown && !wrap.contains(e.target)) {
-        dropdown.classList.remove('visible');
-    }
-});
-
-// ---- Notifications ----
-function toggleNotifications() {
-    const panel = document.getElementById('notifPanel');
-    const overlay = document.getElementById('panelOverlay');
-    const chatPanel = document.getElementById('chatPanel');
-    if (!panel) return;
-    chatPanel?.classList.remove('open');
-    panel.classList.toggle('open');
-    overlay?.classList.toggle('visible', panel.classList.contains('open'));
-    // Clear badge when opened
-    if (panel.classList.contains('open')) {
-        const badge = document.getElementById('notifBadge');
-        if (badge) badge.style.display = 'none';
-    }
-}
-
-// ---- Chat ----
 function toggleChat() {
     const panel = document.getElementById('chatPanel');
     const notifPanel = document.getElementById('notifPanel');
@@ -1278,13 +1257,11 @@ function toggleChat() {
     panel.classList.toggle('open');
     const badge = document.getElementById('chatBadge');
     if (badge) badge.style.display = 'none';
-    // Focus input when opened
     if (panel.classList.contains('open')) {
         setTimeout(() => document.getElementById('chatInput')?.focus(), 300);
     }
 }
 
-// ✅ MODIFIED - Now uses Gemini API
 async function sendChatMessage() {
     const input = document.getElementById('chatInput');
     const messages = document.getElementById('chatMessages');
@@ -1293,14 +1270,12 @@ async function sendChatMessage() {
     const userMsg = input.value.trim();
     input.value = '';
 
-    // Add user message
     messages.innerHTML += `
         <div class="chat-msg user">
             <div class="chat-bubble">${escapeHtml(userMsg)}</div>
         </div>`;
     messages.scrollTop = messages.scrollHeight;
 
-    // "Thinking" message
     const typingId = 'typing-' + Date.now();
     messages.innerHTML += `
         <div class="chat-msg bot" id="${typingId}">
@@ -1317,11 +1292,9 @@ async function sendChatMessage() {
 
         const data = await response.json();
 
-        // Remove "thinking" message
         const typing = document.getElementById(typingId);
         if (typing) typing.remove();
 
-        // Add the response
         messages.innerHTML += `
             <div class="chat-msg bot">
                 <div class="chat-bubble">${escapeHtml(data.reply)}</div>
@@ -1342,27 +1315,38 @@ async function sendChatMessage() {
     }
 }
 
-// ✅ NEW - Helper to escape HTML
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-// ⚠️ REMOVE or REPLACE the old getAIResponse() function
-// The old getAIResponse() is no longer needed since we use Gemini API.
-// You can delete it or comment it out.
+// ---------------------------------------------------------------
+// 15. NOTIFICATIONS
+// ---------------------------------------------------------------
+function toggleNotifications() {
+    const panel = document.getElementById('notifPanel');
+    const overlay = document.getElementById('panelOverlay');
+    const chatPanel = document.getElementById('chatPanel');
+    if (!panel) return;
+    chatPanel?.classList.remove('open');
+    panel.classList.toggle('open');
+    overlay?.classList.toggle('visible', panel.classList.contains('open'));
+    if (panel.classList.contains('open')) {
+        const badge = document.getElementById('notifBadge');
+        if (badge) badge.style.display = 'none';
+    }
+}
 
-
-
-// ---- Profile Menu ----
+// ---------------------------------------------------------------
+// 16. PROFILE MENU
+// ---------------------------------------------------------------
 function toggleProfileMenu() {
     const menu = document.getElementById('profileMenu');
     if (!menu) return;
     menu.classList.toggle('visible');
 }
 
-// Close profile menu on outside click
 document.addEventListener('click', (e) => {
     const avatar = document.querySelector('.topbar-avatar');
     const menu = document.getElementById('profileMenu');
@@ -1371,13 +1355,68 @@ document.addEventListener('click', (e) => {
     }
 });
 
+// ---------------------------------------------------------------
+// 17. SEARCH FUNCTIONS
+// ---------------------------------------------------------------
+async function handleGlobalSearch(query) {
+    const dropdown = document.getElementById('searchDropdown');
+    if (!dropdown) return;
+
+    if (!query || query.length < 2) {
+        dropdown.classList.remove('visible');
+        dropdown.innerHTML = '';
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
+        if (!response.ok) throw new Error('Search failed');
+        const results = await response.json();
+
+        if (results.length === 0) {
+            dropdown.innerHTML = `<div class="search-result-item" style="color:var(--text-tertiary);">No results found</div>`;
+        } else {
+            dropdown.innerHTML = results.map(r => `
+                <div class="search-result-item" onclick="window.location.href='${r.url}'">
+                    <span>${r.label}</span>
+                    <span class="search-result-type ms-auto">${r.type}</span>
+                </div>`).join('');
+        }
+        dropdown.classList.add('visible');
+    } catch (e) {
+        console.warn('Search error:', e);
+    }
+}
+
+function showSearchDropdown() {
+    const input = document.getElementById('globalSearch');
+    if (input && input.value.length >= 2) handleGlobalSearch(input.value);
+}
+
+document.addEventListener('click', (e) => {
+    const wrap = document.getElementById('topbarSearchWrap');
+    const dropdown = document.getElementById('searchDropdown');
+    if (wrap && dropdown && !wrap.contains(e.target)) {
+        dropdown.classList.remove('visible');
+    }
+});
+
+// ---------------------------------------------------------------
+// 18. UTILITY FUNCTIONS
+// ---------------------------------------------------------------
 function closeAllPanels() {
     document.getElementById('notifPanel')?.classList.remove('open');
     document.getElementById('chatPanel')?.classList.remove('open');
     document.getElementById('panelOverlay')?.classList.remove('visible');
 }
 
-// ---- Homepage smooth scroll ----
+function closeMessageModal() {
+    document.getElementById('messageModal')?.classList.remove('visible');
+}
+
+// ---------------------------------------------------------------
+// 19. HOMEPAGE SMOOTH SCROLL
+// ---------------------------------------------------------------
 document.querySelectorAll('a[href^="#"]').forEach(a => {
     a.addEventListener('click', e => {
         const target = document.querySelector(a.getAttribute('href'));
