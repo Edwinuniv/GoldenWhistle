@@ -7,7 +7,6 @@ namespace GoldenWhistle.ViewModels
 {
     public class DashboardViewModel
     {
-        // Logged-in user info (from ApplicationUser)
         public string UserDisplayName { get; set; } = string.Empty;
         public int UserTotalPoints { get; set; }
         public int UserPointsDeltaToday { get; set; }
