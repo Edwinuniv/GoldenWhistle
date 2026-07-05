@@ -1,4 +1,6 @@
-﻿@{
+﻿@model GoldenWhistle.ViewModels.KickoffViewModel
+
+@{
     ViewData["Title"] = "Kickoff Companion";
     ViewData["Page"] = "kickoff";
 }
@@ -91,3 +93,339 @@
         @* Injected by JS *@
     </div>
 </div>
+
+@* ===== PASS SERVER DATA TO JS ===== *@
+@if (Model?.Matches != null && Model.Matches.Any())
+{
+    <script>
+        window.kickoffMatches = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+                    Model.Matches.Select(m => new
+                    {
+                            matchId = m.MatchId,
+                            homeTeamName = m.HomeTeamName,
+                            homeTeamCode = m.HomeTeamCode,
+                            awayTeamName = m.AwayTeamName,
+                            awayTeamCode = m.AwayTeamCode,
+                            kickoffUtc = m.KickoffUtc.ToString("o"),
+                            stadiumInfo = m.StadiumInfo,
+                            homeInjuries = m.HomeInjuries.Select(i => new
+                            {
+                                    playerName = i.PlayerName,
+                                    role = i.Role,
+                                    status = i.Status
+                            }),
+                            awayInjuries = m.AwayInjuries.Select(i => new
+                            {
+                                    playerName = i.PlayerName,
+                                    role = i.Role,
+                                    status = i.Status
+                            }),
+                            homeTactic = m.HomeTactic == null ? null : new
+                            {
+                                    formation = m.HomeTactic.Formation,
+                                    style = m.HomeTactic.Style,
+                                    keyPlayer = m.HomeTactic.KeyPlayer,
+                                    keyPlayerInitial = m.HomeTactic.KeyPlayerInitial
+                            },
+                            awayTactic = m.AwayTactic == null ? null : new
+                            {
+                                    formation = m.AwayTactic.Formation,
+                                    style = m.AwayTactic.Style,
+                                    keyPlayer = m.AwayTactic.KeyPlayer,
+                                    keyPlayerInitial = m.AwayTactic.KeyPlayerInitial
+                            },
+                            facts = m.Facts.Select(f => new
+                            {
+                                    emoji = f.Emoji,
+                                    text = f.Text,
+                                    color = f.Color
+                            }),
+                            h2h = m.H2H == null ? null : new
+                            {
+                                    homeWins = m.H2H.HomeWins,
+                                    draws = m.H2H.Draws,
+                                    awayWins = m.H2H.AwayWins,
+                                    homeGoals = m.H2H.HomeGoals,
+                                    awayGoals = m.H2H.AwayGoals
+                            }
+                    })
+            ));
+    </script>
+}
+else
+{
+    <script>window.kickoffMatches = [];</script>
+}
+
+@* ===== DEV B: COMPLETE JAVASCRIPT RENDERING ENGINE ===== *@
+<script>
+    (function() {
+    'use strict';
+
+    // =============================================
+    // DEV B: READ FROM window.kickoffMatches
+    // =============================================
+    const matches = window.kickoffMatches || [];
+
+    // ---------- UTILITY FUNCTIONS ----------
+    function getFlag(countryCode) {
+    if (!countryCode) return '🏁';
+    const codePoints = countryCode.toUpperCase().split('').map(c => 0x1F1E6 + c.charCodeAt(0) - 65);
+    return String.fromCodePoint(...codePoints);
+    }
+
+    function formatDate(utcString) {
+    const d = new Date(utcString);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) +
+    ' · ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function getStatus(match) {
+    const now = new Date();
+    const kickoff = new Date(match.kickoffUtc);
+    const diffMs = kickoff - now;
+    if (diffMs < 0) return { label: 'LIVE', dot: 'live' };
+    if (diffMs < 3600000) return { label: 'SOON', dot: 'warning' };
+    return { label: 'UPCOMING', dot: 'idle' };
+    }
+
+    // ---------- RENDER FUNCTIONS ----------
+
+    function renderTabs(matches) {
+    const container = document.getElementById('kickoffMatchTabs');
+    if (!container) return;
+    if (!matches.length) {
+    container.innerHTML = '<span class="text-secondary">No upcoming matches</span>';
+    return;
+    }
+    let html = '';
+    matches.forEach((m, i) => {
+    const status = getStatus(m);
+    const active = i === 0 ? 'active' : '';
+    html += `<button class="filter-chip ${active}" onclick="selectKickoffMatch(${i})">
+    <span class="dot ${status.dot}"></span>
+    ${m.homeTeamCode} vs ${m.awayTeamCode}
+    <span class="text-secondary" style="font-weight:400;font-size:12px;">${formatDate(m.kickoffUtc)}</span>
+    </button>`;
+    });
+    container.innerHTML = html;
+    }
+
+    function renderHero(match) {
+    if (!match) return;
+    const status = getStatus(match);
+    document.getElementById('heroHomeName').textContent = match.homeTeamName;
+    document.getElementById('heroHomeFlag').textContent = getFlag(match.homeTeamCode);
+    document.getElementById('heroAwayName').textContent = match.awayTeamName;
+    document.getElementById('heroAwayFlag').textContent = getFlag(match.awayTeamCode);
+    document.getElementById('heroMatchInfo').textContent = match.stadiumInfo || formatDate(match.kickoffUtc);
+
+    // Countdown
+    const countdownEl = document.getElementById('kickoffCountdown');
+    const labelEl = document.getElementById('kickoffCountdownLabel');
+    if (status.label === 'LIVE') {
+    labelEl.textContent = '⚡ LIVE NOW';
+    countdownEl.textContent = '00:00';
+    } else {
+    labelEl.textContent = 'KICKOFF IN';
+    updateCountdown(match.kickoffUtc, countdownEl);
+    setInterval(() => updateCountdown(match.kickoffUtc, countdownEl), 1000);
+    }
+    // Dot color
+    document.querySelector('.kickoff-countdown-bar .dot').className = `dot ${status.dot}`;
+    }
+
+    function updateCountdown(utcString, el) {
+    const now = new Date();
+    const kickoff = new Date(utcString);
+    const diff = Math.max(0, Math.floor((kickoff - now) / 1000));
+    if (diff === 0) { el.textContent = '00:00'; return; }
+    const h = String(Math.floor(diff / 3600)).padStart(2, '0');
+    const m = String(Math.floor((diff % 3600) / 60)).padStart(2, '0');
+    const s = String(diff % 60).padStart(2, '0');
+    el.textContent = `${h}:${m}:${s}`;
+    }
+
+    function renderInjuries(match) {
+    const container = document.getElementById('injuriesList');
+    if (!container) return;
+    const all = [...(match.homeInjuries || []).map(i => ({...i, team: match.homeTeamName})),
+    ...(match.awayInjuries || []).map(i => ({...i, team: match.awayTeamName}))];
+    if (!all.length) {
+    container.innerHTML = '<div class="text-secondary" style="padding:var(--space-4);">No injuries reported.</div>';
+    return;
+    }
+    let html = '';
+    all.forEach(i => {
+    const statusClass = i.status?.toLowerCase() === 'out' ? 'danger' : 'warning';
+    html += `<div class="col-6 col-md-4">
+    <div class="panel" style="padding:var(--space-3);">
+    <div style="font-weight:600;">${i.playerName}</div>
+    <div style="font-size:13px;color:var(--text-secondary);">${i.team} · ${i.role || 'Player'}</div>
+    <span class="badge badge-${statusClass}">${i.status || 'Questionable'}</span>
+    </div>
+    </div>`;
+    });
+    container.innerHTML = html;
+    }
+
+    function renderTactics(match) {
+    const container = document.getElementById('tacticsList');
+    if (!container) return;
+    const tactics = [
+    match.homeTactic ? { team: match.homeTeamName, ...match.homeTactic } : null,
+    match.awayTactic ? { team: match.awayTeamName, ...match.awayTactic } : null
+    ].filter(Boolean);
+    if (!tactics.length) {
+    container.innerHTML = '<div class="text-secondary" style="padding:var(--space-4);">No tactic data available.</div>';
+    return;
+    }
+    let html = '';
+    tactics.forEach(t => {
+    html += `<div class="col-6">
+    <div class="panel" style="padding:var(--space-3);">
+    <div style="font-weight:600;margin-bottom:4px;">${t.team}</div>
+    <div style="font-size:14px;">${t.formation || 'N/A'} · ${t.style || 'Balanced'}</div>
+    <div style="font-size:13px;color:var(--text-secondary);">Key: ${t.keyPlayer || '—'}</div>
+    </div>
+    </div>`;
+    });
+    container.innerHTML = html;
+    }
+
+    function renderFacts(match) {
+    const container = document.getElementById('factsList');
+    if (!container) return;
+    const facts = match.facts || [];
+    if (!facts.length) {
+    container.innerHTML = '<div class="text-secondary" style="padding:var(--space-4);">No facts available.</div>';
+    return;
+    }
+    let html = '';
+    facts.forEach(f => {
+    const color = f.color || 'gold';
+    html += `<div class="kickoff-fact" style="border-left:4px solid var(--${color});">
+    <div class="kickoff-fact-emoji">${f.emoji || '📊'}</div>
+    <div class="kickoff-fact-text">${f.text}</div>
+    </div>`;
+    });
+    container.innerHTML = html;
+    }
+
+    function renderH2H(match) {
+    const container = document.getElementById('h2hContent');
+    if (!container) return;
+    const h2h = match.h2h;
+    if (!h2h) {
+    container.innerHTML = '<div class="text-secondary" style="padding:var(--space-4);">No head-to-head data available.</div>';
+    return;
+    }
+    const total = h2h.homeWins + h2h.draws + h2h.awayWins;
+    const homePct = total ? Math.round((h2h.homeWins / total) * 100) : 0;
+    const drawPct = total ? Math.round((h2h.draws / total) * 100) : 0;
+    const awayPct = total ? Math.round((h2h.awayWins / total) * 100) : 0;
+
+    container.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--space-4);text-align:center;margin-bottom:var(--space-4);">
+    <div><div style="font-size:28px;font-weight:700;color:var(--green);">${h2h.homeWins}</div><div class="text-secondary">${match.homeTeamCode} Wins</div></div>
+    <div><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${h2h.draws}</div><div class="text-secondary">Draws</div></div>
+    <div><div style="font-size:28px;font-weight:700;color:var(--red);">${h2h.awayWins}</div><div class="text-secondary">${match.awayTeamCode} Wins</div></div>
+    </div>
+    <div style="display:flex;gap:4px;height:12px;border-radius:6px;overflow:hidden;background:var(--bg-secondary);">
+    <div style="flex:${homePct};background:var(--green);"></div>
+    <div style="flex:${drawPct};background:var(--text-secondary);"></div>
+    <div style="flex:${awayPct};background:var(--red);"></div>
+    </div>
+    <div style="margin-top:var(--space-2);font-size:13px;color:var(--text-secondary);text-align:center;">
+    ${total} matches · ${h2h.homeGoals || 0} goals scored by ${match.homeTeamCode}, ${h2h.awayGoals || 0} by ${match.awayTeamCode}
+    </div>
+    `;
+    }
+
+    function renderGrid(matches) {
+    const container = document.getElementById('kickoffGrid');
+    if (!container) return;
+    if (!matches.length) {
+    container.innerHTML = '<div class="text-secondary" style="padding:var(--space-6);text-align:center;">No upcoming matches found.</div>';
+    return;
+    }
+    let html = '';
+    matches.forEach(m => {
+    const status = getStatus(m);
+    html += `<div class="col-6 col-lg-4">
+    <div class="panel" style="padding:var(--space-3);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+    <span class="text-mono" style="font-size:13px;">${m.homeTeamCode} vs ${m.awayTeamCode}</span>
+    <span class="dot ${status.dot}"></span>
+    </div>
+    <div style="font-weight:600;">${m.homeTeamName} vs ${m.awayTeamName}</div>
+    <div style="font-size:13px;color:var(--text-secondary);">${formatDate(m.kickoffUtc)}</div>
+    <button class="btn btn-outline" style="margin-top:12px;padding:4px 16px;" onclick="selectKickoffMatch(${matches.indexOf(m)})">Preview</button>
+    </div>
+    </div>`;
+    });
+    container.innerHTML = html;
+    }
+
+    // ---------- GLOBAL FUNCTIONS (exposed to HTML onclick) ----------
+    window.selectKickoffMatch = function(index) {
+    const match = matches[index];
+    if (!match) return;
+    renderHero(match);
+    renderInjuries(match);
+    renderTactics(match);
+    renderFacts(match);
+    renderH2H(match);
+    // Update active tab
+    document.querySelectorAll('.filter-chip').forEach((el, i) => {
+    el.classList.toggle('active', i === index);
+    });
+    // Reset tab panels to injuries
+    document.querySelectorAll('.kickoff-tab-panel').forEach(el => el.classList.remove('active'));
+    document.getElementById('kpanel-injuries').classList.add('active');
+    document.querySelectorAll('.kickoff-tab').forEach(el => el.classList.remove('active'));
+    document.querySelector('.kickoff-tab[onclick*="injuries"]').classList.add('active');
+    // Scroll to hero
+    document.getElementById('kickoffHeroCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    window.showKickoffTab = function(event, tab) {
+    document.querySelectorAll('.kickoff-tab-panel').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.kickoff-tab').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    document.getElementById(`kpanel-${tab}`).classList.add('active');
+    };
+
+    window.filterKickoff = function(value) {
+    const term = value.toLowerCase().trim();
+    const filtered = matches.filter(m =>
+    m.homeTeamName.toLowerCase().includes(term) ||
+    m.awayTeamName.toLowerCase().includes(term) ||
+    m.homeTeamCode.toLowerCase().includes(term) ||
+    m.awayTeamCode.toLowerCase().includes(term)
+    );
+    renderGrid(filtered);
+    };
+
+    // ---------- INIT ----------
+    function initKickoff() {
+    if (!matches.length) {
+    document.getElementById('kickoffMatchTabs').innerHTML = '<span class="text-secondary">No upcoming matches</span>';
+    document.getElementById('kickoffGrid').innerHTML = '<div class="text-secondary" style="padding:var(--space-6);text-align:center;">No upcoming matches found.</div>';
+    return;
+    }
+    renderTabs(matches);
+    renderGrid(matches);
+    // Select first match by default
+    window.selectKickoffMatch(0);
+    }
+
+    // Run on DOM ready
+    if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initKickoff);
+    } else {
+    initKickoff();
+    }
+
+    })();
+</script>

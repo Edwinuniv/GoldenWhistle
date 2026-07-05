@@ -74,6 +74,11 @@ namespace GoldenWhistle.ViewModels
         public int TotalCorrect { get; set; }
         public int TotalPending { get; set; }
         public string LeagueName { get; set; } = string.Empty;
+        public int MatchId { get; set; }
+        public string? UserPick { get; set; }
+        public int PointsAwarded { get; set; }
+        public bool IsScored { get; set; }
+        public bool IsLocked { get; set; }
 
         // Bracket picks (from BracketPicks + Match + Team)
         public List<BracketMatchViewModel> Picks { get; set; } = new();
@@ -120,25 +125,26 @@ namespace GoldenWhistle.ViewModels
     // ===================================================================
     // Shared sub-ViewModels
     // ===================================================================
-
+  
     public class FixtureCardViewModel
     {
         public int MatchId { get; set; }
-        public string HomeTeamCode { get; set; } = string.Empty; // Team.ShortName
+        public string HomeTeamCode { get; set; } = string.Empty; 
         public string AwayTeamCode { get; set; } = string.Empty;
-        public string HomeTeamName { get; set; } = string.Empty; // Team.Name
+        public string HomeTeamName { get; set; } = string.Empty; 
         public string AwayTeamName { get; set; } = string.Empty;
-        public int? HomeScore { get; set; } // Match.HomeScore
-        public int? AwayScore { get; set; } // Match.AwayScore
-        public string StatusBadge { get; set; } = string.Empty; // "LIVE" | "UPCOMING" | "FT"
-        public string KickoffTime { get; set; } = string.Empty; // formatted from Match.KickoffUtc
+        public int? HomeScore { get; set; } 
+        public int? AwayScore { get; set; } 
+        public string StatusBadge { get; set; } = string.Empty;
+        public string KickoffTime { get; set; } = string.Empty; 
         public string MatchDate { get; set; } = string.Empty;
-        public bool IsLive { get; set; } // Match.Started && !Match.Finished
+        public bool IsLive { get; set; } 
     }
 
     public class BracketMatchViewModel
     {
-        public string Round { get; set; } = string.Empty; // "QF" | "SF" | "FINAL"
+        public int MatchId { get; set; }       // ← add this
+        public string Round { get; set; } = string.Empty;
         public string HomeTeamCode { get; set; } = string.Empty;
         public string HomeTeamName { get; set; } = string.Empty;
         public string AwayTeamCode { get; set; } = string.Empty;
@@ -148,13 +154,17 @@ namespace GoldenWhistle.ViewModels
         public string KickoffTime { get; set; } = string.Empty;
         public bool IsLive { get; set; }
         public bool IsWinner { get; set; }
+        public string? UserPick { get; set; }       // ← add this
+        public int PointsAwarded { get; set; }       // ← add this
+        public bool IsScored { get; set; }           // ← add this
+        public bool IsLocked { get; set; }           // ← add this
     }
 
     public class LeaderRowViewModel
     {
         public int Rank { get; set; }
-        public string UserName { get; set; } = string.Empty; // ApplicationUser.DisplayName
-        public int Points { get; set; }                  // ApplicationUser.TotalPoints
+        public string UserName { get; set; } = string.Empty; 
+        public int Points { get; set; }                
         public int PointsDelta { get; set; }
     }
 
@@ -169,10 +179,10 @@ namespace GoldenWhistle.ViewModels
     public class LiveEventViewModel
     {
         public int Minute { get; set; }
-        public string EventType { get; set; } = string.Empty; // "GOAL" | "YELLOW" | "RED"
+        public string EventType { get; set; } = string.Empty; 
         public string PlayerName { get; set; } = string.Empty;
         public string Score { get; set; } = string.Empty;
-        public string Icon { get; set; } = string.Empty; // "⚽" | "🟨" | "🟥"
+        public string Icon { get; set; } = string.Empty;
     }
 
     public class MoodTimelinePoint
@@ -197,7 +207,7 @@ namespace GoldenWhistle.ViewModels
         public string Price { get; set; } = string.Empty;
         public string Size { get; set; } = string.Empty;
         public string Condition { get; set; } = string.Empty;
-        public string? Tag { get; set; } // "hot" | "rare" | null
+        public string? Tag { get; set; } 
         public string SellerName { get; set; } = string.Empty;
         public double SellerRating { get; set; }
         public bool IsVerified { get; set; }
@@ -206,7 +216,7 @@ namespace GoldenWhistle.ViewModels
 
     public class SimMatchViewModel
     {
-        public int MatchId { get; set; } // Match.Id
+        public int MatchId { get; set; } 
         public string HomeTeamName { get; set; } = string.Empty;
         public string HomeTeamCode { get; set; } = string.Empty;
         public string AwayTeamName { get; set; } = string.Empty;
@@ -222,10 +232,9 @@ namespace GoldenWhistle.ViewModels
         public string HomeTeamCode { get; set; } = string.Empty;
         public string AwayTeamName { get; set; } = string.Empty;
         public string AwayTeamCode { get; set; } = string.Empty;
-        public DateTime KickoffUtc { get; set; }  // Match.KickoffUtc
+        public DateTime KickoffUtc { get; set; }
         public string StadiumInfo { get; set; } = string.Empty;
 
-        // From MatchPreview table (Dev A creates this)
         public List<InjuryItemViewModel> HomeInjuries { get; set; } = new();
         public List<InjuryItemViewModel> AwayInjuries { get; set; } = new();
         public TacticViewModel? HomeTactic { get; set; }
@@ -238,7 +247,7 @@ namespace GoldenWhistle.ViewModels
     {
         public string PlayerName { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty; // "out" | "doubt" | "return"
+        public string Status { get; set; } = string.Empty; 
     }
 
     public class TacticViewModel
@@ -253,7 +262,7 @@ namespace GoldenWhistle.ViewModels
     {
         public string Emoji { get; set; } = string.Empty;
         public string Text { get; set; } = string.Empty;
-        public string Color { get; set; } = string.Empty; // "green" | "gold" | "red" | "blue"
+        public string Color { get; set; } = string.Empty; 
     }
 
     public class H2HViewModel

@@ -1,12 +1,14 @@
 ﻿using GoldenWhistle.Data;
 using GoldenWhistle.Models;
 using GoldenWhistle.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace GoldenWhistle.Controllers
 {
+    [Authorize]
     public class BracketController : Controller
     {
         private readonly ApplicationDbContext _db;
@@ -20,104 +22,187 @@ namespace GoldenWhistle.Controllers
 
         public async Task<IActionResult> Index()
         {
-            var userId = _userManager.GetUserId(User) ?? string.Empty;
+            var userId = _userManager.GetUserId(User);
 
             var matches = await _db.Matches
                 .Include(m => m.HomeTeam)
                 .Include(m => m.AwayTeam)
+                .Include(m => m.League)
                 .OrderBy(m => m.KickoffUtc)
                 .ToListAsync();
 
             var userPicks = await _db.BracketPicks
                 .Where(p => p.UserId == userId)
-                .ToDictionaryAsync(p => p.MatchId, p => p);
+                .ToListAsync();
 
-            var leagueName = "My League";
-            var userLeague = await _db.LeagueMembers
-                .Where(lm => lm.UserId == userId)
-                .Include(lm => lm.League)
-                .FirstOrDefaultAsync();
+            var picksByMatchId = userPicks.ToDictionary(p => p.MatchId);
 
-            if (userLeague != null)
-                leagueName = userLeague.League.Name;
+            var membership = await _db.LeagueMembers
+                .Include(m => m.League)
+                .FirstOrDefaultAsync(m => m.UserId == userId);
 
-            var scoredPicks = userPicks.Values.Where(p => p.IsScored).ToList();
-            var totalCorrect = scoredPicks.Count(p => p.PointsAwarded > 0);
-            var totalPending = matches.Count(m => !m.Finished && !m.Cancelled);
+            List<LeagueStandingViewModel> leagueStandings = new();
+            if (membership is not null)
+            {
+                var members = await _db.LeagueMembers
+                    .Include(m => m.User)
+                    .Where(m => m.PrivateLeagueId == membership.PrivateLeagueId)
+                    .OrderByDescending(m => m.User.TotalPoints)
+                    .ToListAsync();
+
+                leagueStandings = members.Select((m, i) => new LeagueStandingViewModel
+                {
+                    Rank = i + 1,
+                    UserName = m.User.DisplayName ?? m.User.UserName ?? "Fan",
+                    CorrectPicks = userPicks.Count(p => p.IsScored && p.PointsAwarded > 0),
+                    Points = m.User.TotalPoints
+                }).ToList();
+            }
+
+            var totalCorrect = userPicks.Count(p => p.IsScored && p.PointsAwarded > 0);
+            var totalPending = userPicks.Count(p => !p.IsScored && !p.IsLocked);
 
             var vm = new BracketViewModel
             {
                 TotalCorrect = totalCorrect,
                 TotalPending = totalPending,
-                LeagueName = leagueName,
-                Picks = matches.Select(m => new BracketMatchViewModel
+                LeagueName = membership?.League.Name ?? "No league yet",
+
+                Picks = matches.Select(m =>
                 {
-                    Round = GetRound(m.StatusShort),
-                    HomeTeamCode = m.HomeTeam.ShortName,
-                    HomeTeamName = m.HomeTeam.Name,
-                    AwayTeamCode = m.AwayTeam.ShortName,
-                    AwayTeamName = m.AwayTeam.Name,
-                    HomeScore = m.HomeScore,
-                    AwayScore = m.AwayScore,
-                    KickoffTime = m.KickoffUtc.ToLocalTime().ToString("HH:mm"),
-                    IsLive = m.Started && !m.Finished,
-                    IsWinner = m.Finished && m.HomeScore > m.AwayScore
+                    picksByMatchId.TryGetValue(m.Id, out var pick);
+                    return new BracketMatchViewModel
+                    {
+                        MatchId = m.Id,
+                        Round = m.League.Name,
+                        HomeTeamCode = m.HomeTeam.ShortName,
+                        HomeTeamName = m.HomeTeam.Name,
+                        AwayTeamCode = m.AwayTeam.ShortName,
+                        AwayTeamName = m.AwayTeam.Name,
+                        HomeScore = m.HomeScore,
+                        AwayScore = m.AwayScore,
+                        KickoffTime = m.KickoffUtc.ToLocalTime().ToString("HH:mm"),
+                        IsLive = m.Started && !m.Finished,
+                        IsWinner = m.Finished && m.HomeScore > m.AwayScore,
+                        UserPick = pick?.PredictedOutcome.ToString(),
+                        PointsAwarded = pick?.PointsAwarded ?? 0,
+                        IsScored = pick?.IsScored ?? false,
+                        IsLocked = pick?.IsLocked ?? false,
+                    };
                 }).ToList(),
-                LeagueStandings = await GetLeagueStandingsAsync(userId),
+
+                LeagueStandings = leagueStandings,
                 LiveEvents = new List<LiveEventViewModel>()
             };
 
             return View(vm);
         }
 
-        // ✅ CORRIGÉ
-        private async Task<List<LeagueStandingViewModel>> GetLeagueStandingsAsync(string userId)
+        [HttpPost]
+        [Route("api/bracket/pick")]
+        public async Task<IActionResult> SubmitPick([FromBody] BracketPickRequest request)
         {
-            var userLeague = await _db.LeagueMembers
-                .Where(lm => lm.UserId == userId)
-                .Select(lm => lm.PrivateLeagueId)
-                .FirstOrDefaultAsync();
+            var userId = _userManager.GetUserId(User);
+            if (userId is null) return Unauthorized();
 
-            if (userLeague == 0)
+            var match = await _db.Matches.FindAsync(request.MatchId);
+            if (match is null) return NotFound("Match not found.");
+            if (match.Started) return BadRequest("Match has already started — picks are locked.");
+
+            if (!Enum.TryParse<PickOutcome>(request.PredictedOutcome, true, out var outcome))
+                return BadRequest("Invalid outcome. Use Home, Away, or Draw.");
+
+            var existing = await _db.BracketPicks
+                .FirstOrDefaultAsync(p => p.MatchId == request.MatchId && p.UserId == userId);
+
+            if (existing is null)
             {
-                // Récupérer les données d'abord
-                var users = await _db.Users
-                    .OrderByDescending(u => u.TotalPoints)
-                    .Take(10)
-                    .ToListAsync();
-
-                // Calculer le rang en mémoire
-                return users
-                    .Select((u, i) => new LeagueStandingViewModel
-                    {
-                        Rank = i + 1,
-                        UserName = u.DisplayName ?? u.UserName ?? "Fan",
-                        Points = u.TotalPoints
-                    }).ToList();
+                existing = new BracketPick
+                {
+                    UserId = userId,
+                    MatchId = request.MatchId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                _db.BracketPicks.Add(existing);
             }
 
-            var members = await _db.LeagueMembers
-                .Where(lm => lm.PrivateLeagueId == userLeague)
-                .Include(lm => lm.User)
-                .ToListAsync();
+            existing.PredictedOutcome = outcome;
+            existing.PredictedHomeScore = request.PredictedHomeScore;
+            existing.PredictedAwayScore = request.PredictedAwayScore;
 
-            // Trier et calculer le rang en mémoire
-            return members
-                .OrderByDescending(m => m.User.TotalPoints)
-                .Select((m, i) => new LeagueStandingViewModel
-                {
-                    Rank = i + 1,
-                    UserName = m.User.DisplayName ?? m.User.UserName ?? "Fan",
-                    Points = m.User.TotalPoints
-                }).ToList();
+            existing.PredictedFirstScorerName = request.PredictedFirstScorerName;
+            existing.PredictedLastScorerName = request.PredictedLastScorerName;
+            existing.PredictedAnytimeScorerName = request.PredictedAnytimeScorerName;
+            existing.PredictedOwnGoal = request.PredictedOwnGoal;
+            existing.PredictedOwnGoalTeamId = request.PredictedOwnGoalTeamId;
+
+            existing.PredictedMostAssistsPlayerName = request.PredictedMostAssistsPlayerName;
+            existing.PredictedManOfTheMatchName = request.PredictedManOfTheMatchName;
+
+            existing.PredictedMostYellowsTeamId = request.PredictedMostYellowsTeamId;
+            existing.PredictedMostRedsTeamId = request.PredictedMostRedsTeamId;
+            existing.PredictedMostFoulsTeamId = request.PredictedMostFoulsTeamId;
+            existing.PredictedMostFoulsPlayerName = request.PredictedMostFoulsPlayerName;
+
+            existing.PredictedMostCornersTeamId = request.PredictedMostCornersTeamId;
+
+            existing.PredictedBetterPossessionTeamId = request.PredictedBetterPossessionTeamId;
+            existing.PredictedMostPassesTeamId = request.PredictedMostPassesTeamId;
+            existing.PredictedMostPassesPlayerName = request.PredictedMostPassesPlayerName;
+
+            existing.PredictedHigherXgTeamId = request.PredictedHigherXgTeamId;
+
+            existing.PredictedMostSavesGoalkeeperName = request.PredictedMostSavesGoalkeeperName;
+            existing.PredictedMostSavesTeamId = request.PredictedMostSavesTeamId;
+
+            existing.PredictedMostDistancePlayerName = request.PredictedMostDistancePlayerName;
+
+            await _db.SaveChangesAsync();
+            return Ok(new { message = "Pick saved.", matchId = request.MatchId });
         }
 
-        private static string GetRound(string statusShort) => statusShort switch
+        [HttpGet]
+        [Route("api/bracket/picks")]
+        public async Task<IActionResult> GetMyPicks()
         {
-            "QF" => "QF",
-            "SF" => "SF",
-            "F" => "FINAL",
-            _ => "QF"
-        };
+            var userId = _userManager.GetUserId(User);
+            if (userId is null) return Unauthorized();
+
+            var picks = await _db.BracketPicks
+                .Where(p => p.UserId == userId)
+                .Select(p => new
+                {
+                    p.MatchId,
+                    p.PredictedOutcome,
+                    p.PredictedHomeScore,
+                    p.PredictedAwayScore,
+                    p.IsLocked,
+                    p.IsScored,
+                    p.PointsAwarded,
+                    p.IsUpset
+                })
+                .ToListAsync();
+
+            return Ok(picks);
+        }
+
+        [HttpGet]
+        [Route("api/bracket/leaderboard")]
+        public async Task<IActionResult> GlobalLeaderboard(int page = 1, int pageSize = 20)
+        {
+            var users = await _db.Users
+                .OrderByDescending(u => u.TotalPoints)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select((u, i) => new
+                {
+                    UserName = u.DisplayName ?? u.UserName ?? "Fan",
+                    u.TotalPoints,
+                    u.Country
+                })
+                .ToListAsync();
+
+            return Ok(users);
+        }
     }
 }

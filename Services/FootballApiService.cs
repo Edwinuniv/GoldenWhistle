@@ -49,6 +49,9 @@ public class FootballApiService : IFootballApiService
         if (apiResponse?.Response?.Live is null || apiResponse.Response.Live.Count == 0)
         {
             _logger.LogWarning("No live matches returned from API.");
+
+            // Even if no live matches, mark stale ones as finished
+            await MarkStaleMatchesAsFinishedAsync();
             return 0;
         }
 
@@ -92,9 +95,37 @@ public class FootballApiService : IFootballApiService
         }
 
         await _db.SaveChangesAsync();
+
+        // ===== MARK STALE MATCHES AS FINISHED =====
+        await MarkStaleMatchesAsFinishedAsync();
+        // ==========================================
+
         _logger.LogInformation("Synced {Count} live matches.", upsertCount);
         return upsertCount;
     }
+
+    // ===== UPDATED: Changed from -3 to -2 hours =====
+    private async Task MarkStaleMatchesAsFinishedAsync()
+    {
+        var cutoff = DateTime.UtcNow.AddHours(-2);  // <-- CHANGED from -3 to -2
+
+        var staleMatches = await _db.Matches
+            .Where(m => m.Started && !m.Finished && m.KickoffUtc < cutoff)
+            .ToListAsync();
+
+        if (staleMatches.Count == 0) return;
+
+        foreach (var match in staleMatches)
+        {
+            match.Finished = true;
+            match.StatusShort = "FT";
+            match.StatusLong = "Full-Time";
+        }
+
+        await _db.SaveChangesAsync();
+        _logger.LogInformation("Marked {Count} stale matches as finished.", staleMatches.Count);
+    }
+    // ================================================
 
     private async Task<League> GetOrCreateLeagueAsync(long apiLeagueId)
     {

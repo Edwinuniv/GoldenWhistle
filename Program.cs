@@ -37,8 +37,18 @@ if (!string.IsNullOrEmpty(googleClientId))
 // ===== CUSTOM SERVICE REGISTRATIONS =====
 builder.Services.AddScoped<IBracketScoringService, BracketScoringService>();
 builder.Services.AddScoped<IPrivateLeagueService, PrivateLeagueService>();
-// =========================================
 builder.Services.AddScoped<IChatService, GeminiChatService>();
+
+// ===== HTTP CLIENT REGISTRATIONS =====
+builder.Services.AddHttpClient<IFootballApiService, FootballApiService>();
+builder.Services.AddHttpClient<IMatchStatsService, MatchStatsService>();  // <-- NEW
+// =====================================
+
+// ===== BACKGROUND SYNC =====
+builder.Services.AddHostedService<GoldenWhistle.BackgroundServices.SyncBackgroundService>();
+// ===========================
+
+// ===== CONTROLLERS & SIGNALR =====
 builder.Services.AddControllers();
 builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
