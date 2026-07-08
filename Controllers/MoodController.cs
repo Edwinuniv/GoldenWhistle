@@ -1,7 +1,7 @@
 ﻿using GoldenWhistle.Data;
 using GoldenWhistle.Hubs;
 using GoldenWhistle.Models;
-using GoldenWhistle.ViewModels;
+using GoldenWhistle.ViewModels.Mood;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -394,7 +394,29 @@ namespace GoldenWhistle.Controllers
                 return StatusCode(500, new { error = ex.Message });
             }
         }
+        // GET: /api/mood/global-stats
+        [HttpGet]
+        [Route("api/mood/global-stats")]
+        public async Task<IActionResult> GetGlobalStats()
+        {
+            var votes = await _db.MoodVotes
+                .Where(v => v.Match != null && (v.Match.Started || v.Match.Finished))
+                .ToListAsync();
+
+            var total = votes.Count;
+            if (total == 0)
+            {
+                return Ok(new { ecstasy = 0, anxious = 0, agony = 0, total = 0 });
+            }
+
+            var ecstasy = (int)Math.Round(votes.Count(v => v.Mood == MoodType.Ecstasy) * 100.0 / total);
+            var anxious = (int)Math.Round(votes.Count(v => v.Mood == MoodType.Anxiety) * 100.0 / total);
+            var agony = (int)Math.Round(votes.Count(v => v.Mood == MoodType.Agony) * 100.0 / total);
+
+            return Ok(new { ecstasy, anxious, agony, total });
+        }
     }
+
 
     // ============================================================
     // Request DTO

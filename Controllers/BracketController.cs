@@ -1,10 +1,11 @@
 ﻿using GoldenWhistle.Data;
 using GoldenWhistle.Models;
-using GoldenWhistle.ViewModels;
+using GoldenWhistle.ViewModels.Bracket;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using GoldenWhistle.ViewModels;
 
 namespace GoldenWhistle.Controllers
 {

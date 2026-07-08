@@ -68,7 +68,7 @@ function drawInBarAnimation() {
 }
 
 // ---------------------------------------------------------------
-// 3. FAN PULSE BAR — REAL DATA FROM API
+// FAN PULSE - REAL DATA FROM API
 // ---------------------------------------------------------------
 async function updateFanPulseFromAPI() {
     try {
@@ -78,19 +78,20 @@ async function updateFanPulseFromAPI() {
         updateFanPulseUI(data.ecstasy, data.anxious, data.agony, data.total);
     } catch (e) {
         console.warn('Error loading fan pulse:', e);
+        // Ne pas afficher de données fallback - laisser vide
     }
 }
 
 function updateFanPulseUI(ecstasy, anxious, agony, totalVotes) {
     const segE = document.getElementById('segEcstasy');
     if (!segE) return;
-    document.getElementById('segEcstasy').style.width = ecstasy + '%';
-    document.getElementById('segAnxious').style.width = anxious + '%';
-    document.getElementById('segAgony').style.width = agony + '%';
-    document.getElementById('pctEcstasy').textContent = ecstasy + '%';
-    document.getElementById('pctAnxious').textContent = anxious + '%';
-    document.getElementById('pctAgony').textContent = agony + '%';
-    document.getElementById('voteCount').textContent = totalVotes.toLocaleString('en-US');
+    document.getElementById('segEcstasy').style.width = (ecstasy || 0) + '%';
+    document.getElementById('segAnxious').style.width = (anxious || 0) + '%';
+    document.getElementById('segAgony').style.width = (agony || 0) + '%';
+    document.getElementById('pctEcstasy').textContent = (ecstasy || 0) + '%';
+    document.getElementById('pctAnxious').textContent = (anxious || 0) + '%';
+    document.getElementById('pctAgony').textContent = (agony || 0) + '%';
+    document.getElementById('voteCount').textContent = (totalVotes || 0).toLocaleString('en-US');
 }
 
 // ---------------------------------------------------------------
@@ -1322,9 +1323,9 @@ function escapeHtml(text) {
 }
 
 // ---------------------------------------------------------------
-// 15. NOTIFICATIONS
+//  15- NOTIFICATIONS - REAL DATA FROM API
 // ---------------------------------------------------------------
-function toggleNotifications() {
+async function toggleNotifications() {
     const panel = document.getElementById('notifPanel');
     const overlay = document.getElementById('panelOverlay');
     const chatPanel = document.getElementById('chatPanel');
@@ -1332,10 +1333,51 @@ function toggleNotifications() {
     chatPanel?.classList.remove('open');
     panel.classList.toggle('open');
     overlay?.classList.toggle('visible', panel.classList.contains('open'));
+
     if (panel.classList.contains('open')) {
+        // Charger les notifications réelles
+        await loadNotifications();
         const badge = document.getElementById('notifBadge');
         if (badge) badge.style.display = 'none';
     }
+}
+
+async function loadNotifications() {
+    try {
+        const response = await fetch('/api/notifications');
+        if (!response.ok) throw new Error('Failed to load notifications');
+        const notifications = await response.json();
+        renderNotifications(notifications);
+    } catch (e) {
+        console.warn('Error loading notifications:', e);
+        // Ne pas afficher de fallback - laisser vide
+        document.getElementById('notifList').innerHTML = '<div class="text-secondary">No notifications</div>';
+    }
+}
+
+function renderNotifications(notifications) {
+    const list = document.getElementById('notifList');
+    if (!list) return;
+    list.innerHTML = '';
+
+    if (notifications.length === 0) {
+        list.innerHTML = '<div class="text-secondary" style="text-align:center;padding:20px;">No notifications</div>';
+        return;
+    }
+
+    notifications.forEach(n => {
+        const div = document.createElement('div');
+        div.className = `notif-item ${n.isRead ? '' : 'unread'}`;
+        div.innerHTML = `
+            <span class="dot ${n.type}"></span>
+            <div>
+                <div class="fw-bold" style="font-size:14px;">${n.icon || '📌'} ${n.title}</div>
+                <div class="text-secondary" style="font-size:12px;">${n.message}</div>
+                <div class="text-tertiary" style="font-size:11px;">${n.timeAgo}</div>
+            </div>
+        `;
+        list.appendChild(div);
+    });
 }
 
 // ---------------------------------------------------------------

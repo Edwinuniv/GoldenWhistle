@@ -1,10 +1,12 @@
 ﻿using GoldenWhistle.Data;
 using GoldenWhistle.Models;
-using GoldenWhistle.ViewModels;
+using GoldenWhistle.ViewModels.Dashboard;   // ✅ Pour DashboardViewModel, FixtureCardViewModel, LeaderRowViewModel, XgDataPoint
+using GoldenWhistle.ViewModels.Bracket;     // ✅ Pour BracketMatchViewModel
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+
 
 namespace GoldenWhistle.Controllers
 {

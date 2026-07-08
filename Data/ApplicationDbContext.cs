@@ -11,6 +11,7 @@ namespace GoldenWhistle.Data
         {
         }
 
+        // ─── EXISTING DbSets ──────────────────────────────────────
         public DbSet<MoodVote> MoodVotes { get; set; }
         public DbSet<Match> Matches { get; set; }
         public DbSet<Team> Teams { get; set; }
@@ -20,12 +21,16 @@ namespace GoldenWhistle.Data
         public DbSet<LeagueMember> LeagueMembers { get; set; }
         public DbSet<MatchStats> MatchStats { get; set; }
 
-
+        // ─── NEW DbSets ──────────────────────────────────────────
+        public DbSet<JerseyListing> JerseyListings { get; set; }
+        public DbSet<PubLocation> PubLocations { get; set; }
+        public DbSet<Message> Messages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
 
+            // ─── EXISTING CONFIGURATIONS ──────────────────────────
             builder.Entity<Match>()
                 .HasOne(m => m.HomeTeam)
                 .WithMany()
@@ -42,6 +47,29 @@ namespace GoldenWhistle.Data
                 .HasOne(s => s.Match)
                 .WithOne()
                 .HasForeignKey<MatchStats>(s => s.MatchId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // ─── NEW CONFIGURATIONS ──────────────────────────────
+
+            // JerseyListing → User (Seller)
+            builder.Entity<JerseyListing>()
+                .HasOne(j => j.Seller)
+                .WithMany()
+                .HasForeignKey(j => j.SellerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Message → User (Sender)
+            builder.Entity<Message>()
+                .HasOne(m => m.Sender)
+                .WithMany()
+                .HasForeignKey(m => m.SenderId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Message → JerseyListing
+            builder.Entity<Message>()
+                .HasOne(m => m.Listing)
+                .WithMany()
+                .HasForeignKey(m => m.ListingId)
                 .OnDelete(DeleteBehavior.Cascade);
         }
     }

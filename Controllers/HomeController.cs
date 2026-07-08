@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-
+using GoldenWhistle.ViewModels;
 namespace GoldenWhistle.Controllers
 {
     public class HomeController : Controller

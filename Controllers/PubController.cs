@@ -1,5 +1,5 @@
 ﻿using GoldenWhistle.Data;
-using GoldenWhistle.ViewModels;
+using GoldenWhistle.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,31 +14,92 @@ namespace GoldenWhistle.Controllers
             _db = db;
         }
 
-        // Page load — map is empty, JS will call /api/pubs to populate
         public IActionResult Index() => View();
 
-        // API endpoint called by Leaflet/JS with user's coordinates
+        // ✅ GET: /api/pubs
         [HttpGet]
         [Route("api/pubs")]
         public async Task<IActionResult> GetPubs(double lat = 0, double lng = 0, double radius = 5000)
         {
-            // TODO: once PubLocations table exists, query by distance:
-            // var pubs = await _db.PubLocations
-            //     .Where(p => p.IsApproved)
-            //     .ToListAsync();
-            // return Ok(pubs.Select(p => new { ... }));
+            var pubs = await _db.PubLocations
+                .Where(p => p.IsApproved)
+                .Select(p => new
+                {
+                    p.Id,
+                    p.Name,
+                    p.Address,
+                    p.Lat,
+                    p.Lng,
+                    p.IsOpen,
+                    p.Rating,
+                    p.Reviews,
+                    p.Screens,
+                    p.FreeEntry,
+                    p.HdScreens,
+                    p.ImageUrl
+                })
+                .ToListAsync();
 
-            // Placeholder — returns empty until Dev A adds PubLocations table
-            return Ok(new List<object>());
+            return Ok(pubs);
         }
 
+        // ✅ POST: /api/pubs (Ajouter un pub)
+        [HttpPost]
+        [Route("api/pubs")]
+        public async Task<IActionResult> AddPub([FromBody] AddPubRequest request)
+        {
+            var pub = new PubLocation
+            {
+                Name = request.Name,
+                Address = request.Address,
+                Lat = request.Lat,
+                Lng = request.Lng,
+                IsOpen = request.IsOpen,
+                Rating = 0,
+                Reviews = 0,
+                Screens = request.Screens,
+                FreeEntry = request.FreeEntry,
+                HdScreens = request.HdScreens,
+                IsApproved = false,
+                ImageUrl = request.ImageUrl
+            };
+
+            _db.PubLocations.Add(pub);
+            await _db.SaveChangesAsync();
+
+            return Ok(new { success = true, pubId = pub.Id });
+        }
+
+        // ✅ POST: /api/pubs/{id}/rate
         [HttpPost]
         [Route("api/pubs/{id}/rate")]
         public async Task<IActionResult> RatePub(int id, [FromBody] RatePubRequest request)
         {
-            // TODO: save rating to PubRatings table
-            return Ok(new { success = true });
+            var pub = await _db.PubLocations.FindAsync(id);
+            if (pub == null) return NotFound();
+
+            var totalReviews = pub.Reviews + 1;
+            var totalRating = pub.Rating * pub.Reviews + request.Rating;
+            pub.Rating = totalRating / totalReviews;
+            pub.Reviews = totalReviews;
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new { success = true, newRating = pub.Rating, totalReviews = pub.Reviews });
         }
+    }
+
+    public class AddPubRequest
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public double Lat { get; set; }
+        public double Lng { get; set; }
+        public bool IsOpen { get; set; } = true;
+        public int Screens { get; set; }
+        public bool FreeEntry { get; set; }
+        public bool HdScreens { get; set; }
+        public string? ImageUrl { get; set; }
     }
 
     public class RatePubRequest
