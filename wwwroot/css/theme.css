@@ -9,6 +9,7 @@
     --bg-panel: #0F1525;
     --bg-panel-raised: #121A2E;
     --bg-pill: #161E33;
+    --bg-subtle: rgba(255, 255, 255, 0.04);
     --border-subtle: rgba(255, 255, 255, 0.06);
     --border-card: rgba(255, 255, 255, 0.08);
     --border-active: rgba(0, 255, 135, 0.35);

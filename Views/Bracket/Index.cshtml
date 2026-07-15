@@ -64,6 +64,10 @@
                         }
                     </div>
                 }
+                @if (!Model.Picks.Any(p => p.Round == "QF"))
+                {
+                    <p class="text-secondary" style="font-size:13px;">No quarter-final matches yet.</p>
+                }
             </div>
 
             <div class="col-md-4">
@@ -87,10 +91,14 @@
                         </div>
                     </div>
                 }
+                @if (!Model.Picks.Any(p => p.Round == "SF"))
+                {
+                    <p class="text-secondary" style="font-size:13px;">No semi-final matches yet.</p>
+                }
             </div>
 
             <div class="col-md-4">
-                <span class="section-title d-block mb-2">Final · Jul 19</span>
+                <span class="section-title d-block mb-2">Final</span>
                 @foreach (var pick in Model.Picks.Where(p => p.Round == "FINAL"))
                 {
                     var homeWin = pick.HomeScore.HasValue && pick.AwayScore.HasValue && pick.HomeScore > pick.AwayScore;
@@ -101,6 +109,10 @@
                             @(pick.HomeScore.HasValue ? $"{pick.HomeTeamName} {pick.HomeScore} - {pick.AwayScore} {pick.AwayTeamName}" : "TBD")
                         </div>
                     </div>
+                }
+                @if (!Model.Picks.Any(p => p.Round == "FINAL"))
+                {
+                    <p class="text-secondary" style="font-size:13px;">Final not decided yet.</p>
                 }
             </div>
         </div>
@@ -124,7 +136,13 @@
                         <strong class="@(member.Rank == 1 ? "text-gold" : "")">@member.Points pts</strong>
                     </div>
                 }
-                <button class="btn btn-ghost" style="border-style:dashed;" data-action="invite-friend">+ Invite Friend</button>
+                @* FIX: data-league-id added so inviteFriend() (site.js) can
+                   call the real GET /api/league/{id}/invite endpoint instead
+                   of the nonexistent email-POST route it used to call. *@
+                @if (Model.LeagueId.HasValue)
+                {
+                    <button class="btn btn-ghost" style="border-style:dashed;" data-action="invite-friend" data-league-id="@Model.LeagueId">+ Invite Friend</button>
+                }
             </div>
         </div>
 
@@ -143,6 +161,10 @@
                             <div class="text-secondary" style="font-size:13px;">@evt.Score</div>
                         </div>
                     </div>
+                }
+                @if (!Model.LiveEvents.Any())
+                {
+                    <p class="text-secondary" style="font-size:13px;">No live events right now.</p>
                 }
             </div>
         </div>

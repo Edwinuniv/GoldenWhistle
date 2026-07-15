@@ -1,4 +1,5 @@
-﻿using GoldenWhistle.Data;
+﻿using System.Security.Cryptography;
+using GoldenWhistle.Data;
 using GoldenWhistle.Models;
 using GoldenWhistle.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,9 @@ namespace GoldenWhistle.Services;
 public class PrivateLeagueService : IPrivateLeagueService
 {
     private readonly ApplicationDbContext _db;
+    private const string CodeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    private const int CodeLength = 6;
+    private const int MaxGenerationAttempts = 10;
 
     public PrivateLeagueService(ApplicationDbContext db)
     {
@@ -20,7 +24,7 @@ public class PrivateLeagueService : IPrivateLeagueService
         {
             Name = leagueName,
             CreatedByUserId = userId,
-            JoinCode = GenerateJoinCode(),
+            JoinCode = await GenerateUniqueJoinCodeAsync(),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -70,12 +74,33 @@ public class PrivateLeagueService : IPrivateLeagueService
             .ToListAsync();
     }
 
-    private static string GenerateJoinCode()
+    // FIX (audit §7): the previous version used `new Random()` (not
+    // cryptographically secure — join codes are effectively access tokens
+    // to a private league, so predictability matters) and never checked
+    // whether the generated code already existed, so two leagues could
+    // silently collide on the same code. We now use RandomNumberGenerator
+    // and retry against the database until a free code is found.
+    private async Task<string> GenerateUniqueJoinCodeAsync()
     {
-        const string chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-        var random = new Random();
-        return new string(Enumerable.Range(0, 6)
-            .Select(_ => chars[random.Next(chars.Length)])
-            .ToArray());
+        for (int attempt = 0; attempt < MaxGenerationAttempts; attempt++)
+        {
+            var code = GenerateRandomCode();
+            var exists = await _db.PrivateLeagues.AnyAsync(l => l.JoinCode == code);
+            if (!exists) return code;
+        }
+
+        throw new InvalidOperationException(
+            $"Could not generate a unique join code after {MaxGenerationAttempts} attempts.");
+    }
+
+    private static string GenerateRandomCode()
+    {
+        Span<char> buffer = stackalloc char[CodeLength];
+        for (int i = 0; i < CodeLength; i++)
+        {
+            var index = RandomNumberGenerator.GetInt32(CodeChars.Length);
+            buffer[i] = CodeChars[index];
+        }
+        return new string(buffer);
     }
 }

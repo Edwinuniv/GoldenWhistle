@@ -51,11 +51,24 @@ namespace GoldenWhistle.Controllers
                     .OrderByDescending(m => m.User.TotalPoints)
                     .ToListAsync();
 
+                // FIX (audit §3, bug critique): the previous version counted
+                // the CURRENT VIEWER's correct picks for every row, so all
+                // members of a league appeared to have the same score. We
+                // now fetch scored picks per-member and count each member's
+                // own correct picks.
+                var memberIds = members.Select(m => m.UserId).ToList();
+                var scoredPicksByUser = (await _db.BracketPicks
+                        .Where(p => memberIds.Contains(p.UserId) && p.IsScored && p.PointsAwarded > 0)
+                        .Select(p => p.UserId)
+                        .ToListAsync())
+                    .GroupBy(id => id)
+                    .ToDictionary(g => g.Key, g => g.Count());
+
                 leagueStandings = members.Select((m, i) => new LeagueStandingViewModel
                 {
                     Rank = i + 1,
                     UserName = m.User.DisplayName ?? m.User.UserName ?? "Fan",
-                    CorrectPicks = userPicks.Count(p => p.IsScored && p.PointsAwarded > 0),
+                    CorrectPicks = scoredPicksByUser.TryGetValue(m.UserId, out var cnt) ? cnt : 0,
                     Points = m.User.TotalPoints
                 }).ToList();
             }
@@ -68,14 +81,18 @@ namespace GoldenWhistle.Controllers
                 TotalCorrect = totalCorrect,
                 TotalPending = totalPending,
                 LeagueName = membership?.League.Name ?? "No league yet",
+                LeagueId = membership?.PrivateLeagueId,
 
+                // FIX (audit §3): use the real Match.Stage/StageLabel instead
+                // of League.Name, which never equals "QF"/"SF"/"FINAL" and
+                // left the three bracket columns permanently empty.
                 Picks = matches.Select(m =>
                 {
                     picksByMatchId.TryGetValue(m.Id, out var pick);
                     return new BracketMatchViewModel
                     {
                         MatchId = m.Id,
-                        Round = m.League.Name,
+                        Round = m.StageLabel,
                         HomeTeamCode = m.HomeTeam.ShortName,
                         HomeTeamName = m.HomeTeam.Name,
                         AwayTeamCode = m.AwayTeam.ShortName,
@@ -115,6 +132,9 @@ namespace GoldenWhistle.Controllers
 
             var existing = await _db.BracketPicks
                 .FirstOrDefaultAsync(p => p.MatchId == request.MatchId && p.UserId == userId);
+
+            if (existing is not null && existing.IsLocked)
+                return BadRequest("This pick is locked and can no longer be edited.");
 
             if (existing is null)
             {
@@ -185,6 +205,31 @@ namespace GoldenWhistle.Controllers
                 .ToListAsync();
 
             return Ok(picks);
+        }
+
+        // NEW (audit §2): site.js's lockPredictions() called this route but
+        // it never existed server-side, and BracketPick.IsLocked was never
+        // set anywhere. This implements the missing feature: lock all of the
+        // current user's not-yet-started, not-yet-locked picks.
+        [HttpPost]
+        [Route("api/bracket/lock")]
+        public async Task<IActionResult> LockPredictions()
+        {
+            var userId = _userManager.GetUserId(User);
+            if (userId is null) return Unauthorized();
+
+            var picks = await _db.BracketPicks
+                .Include(p => p.Match)
+                .Where(p => p.UserId == userId && !p.IsLocked)
+                .ToListAsync();
+
+            var lockable = picks.Where(p => !p.Match.Started).ToList();
+            foreach (var pick in lockable)
+                pick.IsLocked = true;
+
+            await _db.SaveChangesAsync();
+
+            return Ok(new { message = $"{lockable.Count} prediction(s) locked.", lockedCount = lockable.Count });
         }
 
         [HttpGet]

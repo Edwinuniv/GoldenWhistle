@@ -39,18 +39,11 @@ public class FootballApiService : IFootballApiService
         _logger.LogInformation("Fetching live matches from API...");
 
         var json = await _httpClient.GetStringAsync(LiveMatchesEndpoint);
-
-        // ===== ADDED: Log the raw JSON response =====
-        _logger.LogInformation("Raw API Response: {Json}", json);
-        // =============================================
-
         var apiResponse = JsonSerializer.Deserialize<LiveMatchesApiResponse>(json);
 
         if (apiResponse?.Response?.Live is null || apiResponse.Response.Live.Count == 0)
         {
             _logger.LogWarning("No live matches returned from API.");
-
-            // Even if no live matches, mark stale ones as finished
             await MarkStaleMatchesAsFinishedAsync();
             return 0;
         }
@@ -60,8 +53,8 @@ public class FootballApiService : IFootballApiService
         foreach (var dto in apiResponse.Response.Live)
         {
             var league = await GetOrCreateLeagueAsync(dto.LeagueId);
-            var homeTeam = await GetOrCreateTeamAsync(dto.Home.Id, dto.Home.LongName);
-            var awayTeam = await GetOrCreateTeamAsync(dto.Away.Id, dto.Away.LongName);
+            var homeTeam = await GetOrCreateTeamAsync(dto.Home.Id, dto.Home.Name, dto.Home.LongName);
+            var awayTeam = await GetOrCreateTeamAsync(dto.Away.Id, dto.Away.Name, dto.Away.LongName);
 
             var kickoff = DateTimeOffset.TryParse(dto.Status.UtcTime, out var parsed)
                 ? parsed.UtcDateTime
@@ -82,7 +75,6 @@ public class FootballApiService : IFootballApiService
                 _db.Matches.Add(match);
             }
 
-            // Always update live score + status fields
             match.HomeScore = dto.Home.Score;
             match.AwayScore = dto.Away.Score;
             match.Started = dto.Status.Started;
@@ -96,18 +88,65 @@ public class FootballApiService : IFootballApiService
 
         await _db.SaveChangesAsync();
 
-        // ===== MARK STALE MATCHES AS FINISHED =====
+        // FIX (audit §3/§7): the free-tier API does not expose a "round"
+        // field on the live-match DTO, so there is no ground truth for
+        // stage. As a documented, best-effort approximation, we derive
+        // stage per-league from chronological order assuming a standard
+        // single-elimination bracket (8 QF -> 4 SF -> 2 Final, from a
+        // Round-of-16 stage of 16 matches if present). This only produces
+        // correct labels once all matches for the tournament have been
+        // synced at least once. If the paid/full API tier exposes an
+        // explicit round field, replace this with that field directly.
+        await DeriveStagesAsync();
+
         await MarkStaleMatchesAsFinishedAsync();
-        // ==========================================
 
         _logger.LogInformation("Synced {Count} live matches.", upsertCount);
         return upsertCount;
     }
 
-    // ===== UPDATED: Changed from -3 to -2 hours =====
+    private async Task DeriveStagesAsync()
+    {
+        var leagueIds = await _db.Matches.Select(m => m.LeagueId).Distinct().ToListAsync();
+
+        foreach (var leagueId in leagueIds)
+        {
+            var matches = await _db.Matches
+                .Where(m => m.LeagueId == leagueId && !m.Cancelled)
+                .OrderBy(m => m.KickoffUtc)
+                .ToListAsync();
+
+            int count = matches.Count;
+            if (count == 0) continue;
+
+            // Standard bracket sizes counting backwards from the final.
+            // Anything beyond Round of 16 in this same league is left as
+            // Unknown rather than guessed, since group-stage/earlier knockout
+            // rounds are not modelled by this app yet.
+            for (int i = 0; i < count; i++)
+            {
+                int fromEnd = count - i; // 1 = last match chronologically
+                matches[i].Stage = fromEnd switch
+                {
+                    1 or 2 => MatchStage.Final,
+                    <= 4 => MatchStage.SemiFinal,
+                    <= 8 => MatchStage.QuarterFinal,
+                    <= 16 => MatchStage.RoundOf16,
+                    _ => MatchStage.Unknown
+                };
+            }
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
     private async Task MarkStaleMatchesAsFinishedAsync()
     {
-        var cutoff = DateTime.UtcNow.AddHours(-2);  // <-- CHANGED from -3 to -2
+        // NOTE (audit §7): still a heuristic (kickoff + 2h => Finished)
+        // because the DTO doesn't reliably give us a definitive "match over"
+        // flag in all cases seen so far. If a definitive full-time flag is
+        // available in your API tier, prefer that over this timeout.
+        var cutoff = DateTime.UtcNow.AddHours(-2);
 
         var staleMatches = await _db.Matches
             .Where(m => m.Started && !m.Finished && m.KickoffUtc < cutoff)
@@ -125,7 +164,6 @@ public class FootballApiService : IFootballApiService
         await _db.SaveChangesAsync();
         _logger.LogInformation("Marked {Count} stale matches as finished.", staleMatches.Count);
     }
-    // ================================================
 
     private async Task<League> GetOrCreateLeagueAsync(long apiLeagueId)
     {
@@ -135,17 +173,21 @@ public class FootballApiService : IFootballApiService
             league = new League
             {
                 ApiLeagueId = apiLeagueId,
-                Name = $"League {apiLeagueId}",  // placeholder — backfilled later
+                Name = $"League {apiLeagueId}",  // placeholder — see README follow-up: no backfill service exists yet
                 ShortName = string.Empty,
                 Country = string.Empty,
             };
             _db.Leagues.Add(league);
-            await _db.SaveChangesAsync();  // flush so we have the PK
+            await _db.SaveChangesAsync();
         }
         return league;
     }
 
-    private async Task<Team> GetOrCreateTeamAsync(long apiTeamId, string name)
+    // FIX (audit §7): ShortName used to be a blind substring of the full
+    // name (name[..10]), producing meaningless abbreviations. We now prefer
+    // the API's own short "name" field (e.g. "BRA") when present, falling
+    // back to a safe truncation only if it's missing.
+    private async Task<Team> GetOrCreateTeamAsync(long apiTeamId, string shortNameFromApi, string longName)
     {
         var team = await _db.Teams.FirstOrDefaultAsync(t => t.ApiTeamId == apiTeamId);
         if (team is null)
@@ -153,12 +195,14 @@ public class FootballApiService : IFootballApiService
             team = new Team
             {
                 ApiTeamId = apiTeamId,
-                Name = name,
-                ShortName = name.Length > 10 ? name[..10] : name,
+                Name = string.IsNullOrWhiteSpace(longName) ? shortNameFromApi : longName,
+                ShortName = !string.IsNullOrWhiteSpace(shortNameFromApi)
+                    ? shortNameFromApi.ToUpperInvariant()
+                    : (longName.Length > 3 ? longName[..3].ToUpperInvariant() : longName.ToUpperInvariant()),
                 Country = string.Empty,
             };
             _db.Teams.Add(team);
-            await _db.SaveChangesAsync();  // flush so we have the PK
+            await _db.SaveChangesAsync();
         }
         return team;
     }

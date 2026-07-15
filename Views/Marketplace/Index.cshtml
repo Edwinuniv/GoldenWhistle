@@ -4,16 +4,19 @@
     ViewData["Title"] = "Jersey Marketplace";
     ViewData["Page"] = "marketplace";
 }
-<!-- ... le reste du contenu ... -->
+
 <div class="page-header">
     <div>
         <h1>Jersey Marketplace</h1>
-        <p class="subtitle">Fan-to-fan kit trading · <span id="listingCount">2,841</span> listings</p>
+        @* FIX (audit §1): "2,841" was hardcoded and never updated. site.js's
+           loadMarketplaceListings() now sets this from the real count
+           returned by GET /api/listings. *@
+        <p class="subtitle">Fan-to-fan kit trading · <span id="listingCount">0</span> listings</p>
     </div>
     <div class="page-actions">
         <div class="search-input">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
-            <input type="text" id="marketSearchInput" placeholder="Search kits, teams, players..." oninput="filterListings(this.value)" />
+            <input type="text" id="marketSearchInput" placeholder="Search kits, teams, players..." />
         </div>
         <button class="btn btn-outline">
             <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></svg>
@@ -25,23 +28,28 @@
 
 <div style="padding: 0 var(--space-6) var(--space-8);">
 
-    @* ---- Filter chips ---- *@
+    @* FIX (previously undiscovered bugs): the filter chips used to call
+       onclick="setMarketFilter(this,'all')" — a function that is never
+       defined anywhere in site.js — so clicking them did nothing. The real
+       wiring in site.js listens for [data-market-filter] attributes
+       instead, which these chips now carry. Likewise the search input used
+       to call oninput="filterListings(this.value)" (also undefined; the
+       real function is filterMarketListings) — removed in favour of the
+       addEventListener wiring already present in initMarketplace(). *@
     <div class="filter-chips mb-4">
-        <span class="chip active" onclick="setMarketFilter(this,'all')">All Kits</span>
-        <span class="chip" onclick="setMarketFilter(this,'bnwt')">BNWT</span>
-        <span class="chip" onclick="setMarketFilter(this,'match')">Match Worn</span>
-        <span class="chip" onclick="setMarketFilter(this,'player')">Player Specific</span>
-        <span class="chip" onclick="setMarketFilter(this,'budget')">Under £100</span>
-        <span class="chip" onclick="setMarketFilter(this,'auth')">Authenticated</span>
+        <span class="chip active" data-market-filter="all">All Kits</span>
+        <span class="chip" data-market-filter="bnwt">BNWT</span>
+        <span class="chip" data-market-filter="match">Match Worn</span>
+        <span class="chip" data-market-filter="player">Player Specific</span>
+        <span class="chip" data-market-filter="budget">Under £100</span>
+        <span class="chip" data-market-filter="auth">Authenticated</span>
     </div>
 
-    @* ---- Listings grid ---- *@
     <div class="row g-4" id="listingsGrid">
         @* Injected by JS initMarketplace() *@
     </div>
 </div>
 
-@* ---- Message seller modal ---- *@
 <div class="modal-backdrop" id="messageModal" onclick="closeMessageModal()">
     <div class="modal-box" onclick="event.stopPropagation()">
         <div class="d-flex justify-content-between align-items-center mb-4">

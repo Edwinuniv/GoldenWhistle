@@ -32,12 +32,23 @@ namespace GoldenWhistle.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Login(string email, string password, string? returnUrl = null)
         {
-            var result = await _signInManager.PasswordSignInAsync(email, password, isPersistent: true, lockoutOnFailure: false);
+            // FIX (audit §5): lockoutOnFailure was false, so there was no
+            // brute-force protection at all on the login form. Identity's
+            // built-in lockout (see Program.cs — MaxFailedAccessAttempts /
+            // DefaultLockoutTimeSpan) is now actually engaged.
+            var result = await _signInManager.PasswordSignInAsync(email, password, isPersistent: true, lockoutOnFailure: true);
 
             if (result.Succeeded)
                 return RedirectToLocal(returnUrl);
+
+            if (result.IsLockedOut)
+            {
+                ModelState.AddModelError(string.Empty, "Too many failed attempts. Please try again later.");
+                return View();
+            }
 
             ModelState.AddModelError(string.Empty, "Invalid email or password.");
             return View();
@@ -54,6 +65,7 @@ namespace GoldenWhistle.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Register(string firstName, string lastName, string email, string password, string? favouriteTeam)
         {
             var user = new ApplicationUser
@@ -104,14 +116,12 @@ namespace GoldenWhistle.Controllers
             if (info == null)
                 return RedirectToAction("Login");
 
-            // Try to sign in with existing external login
             var result = await _signInManager.ExternalLoginSignInAsync(
                 info.LoginProvider, info.ProviderKey, isPersistent: true);
 
             if (result.Succeeded)
                 return RedirectToLocal(returnUrl);
 
-            // New user — create account from Google info
             var email = info.Principal.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
             var firstName = info.Principal.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value ?? "";
             var lastName = info.Principal.FindFirst(System.Security.Claims.ClaimTypes.Surname)?.Value ?? "";
@@ -136,6 +146,69 @@ namespace GoldenWhistle.Controllers
             return RedirectToAction("Login");
         }
 
+        // ---- Forgot / Reset password ----
+        // NEW (audit §6): Login.cshtml links to /Account/ForgotPassword,
+        // which had no matching action anywhere — a guaranteed 404. This is
+        // a minimal working implementation (request form + always-generic
+        // confirmation, to avoid leaking which emails are registered).
+        // Actually emailing the reset link requires an IEmailSender
+        // implementation which wasn't part of the provided codebase — wire
+        // one up (SendGrid, SES, SMTP...) and call it where noted below.
+        [HttpGet]
+        public IActionResult ForgotPassword() => View();
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ForgotPassword(string email)
+        {
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var user = await _userManager.FindByEmailAsync(email);
+                if (user is not null && await _userManager.IsEmailConfirmedAsync(user))
+                {
+                    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                    var resetUrl = Url.Action("ResetPassword", "Account",
+                        new { userId = user.Id, token }, Request.Scheme);
+
+                    // TODO: send `resetUrl` via a real email service (IEmailSender).
+                    // Intentionally not implemented here since no email
+                    // provider/config was part of the reviewed codebase.
+                }
+            }
+
+            // Always show the same confirmation regardless of whether the
+            // email exists, to avoid leaking account existence.
+            ViewData["Message"] = "If an account with that email exists, a reset link has been sent.";
+            return View("ForgotPasswordConfirmation");
+        }
+
+        [HttpGet]
+        public IActionResult ResetPassword(string? userId, string? token)
+        {
+            if (userId is null || token is null)
+                return RedirectToAction("Login");
+
+            return View(new ResetPasswordViewModel { UserId = userId, Token = token });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
+        {
+            var user = await _userManager.FindByIdAsync(model.UserId);
+            if (user is null)
+                return RedirectToAction("Login");
+
+            var result = await _userManager.ResetPasswordAsync(user, model.Token, model.NewPassword);
+            if (result.Succeeded)
+                return RedirectToAction("Login");
+
+            foreach (var error in result.Errors)
+                ModelState.AddModelError(string.Empty, error.Description);
+
+            return View(model);
+        }
+
         // ---- Helpers ----
         private IActionResult RedirectToLocal(string? returnUrl)
         {
@@ -143,5 +216,12 @@ namespace GoldenWhistle.Controllers
                 return Redirect(returnUrl);
             return RedirectToAction("Index", "Dashboard");
         }
+    }
+
+    public class ResetPasswordViewModel
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string Token { get; set; } = string.Empty;
+        public string NewPassword { get; set; } = string.Empty;
     }
 }

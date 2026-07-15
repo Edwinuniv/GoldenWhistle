@@ -4,7 +4,13 @@
     ViewData["Title"] = "Kickoff Companion";
     ViewData["Page"] = "kickoff";
 }
-<!-- ... le reste du contenu ... -->
+
+@* NOTE (audit §3): this view's embedded <script> below is now the ONLY
+   renderer for this page. site.js's old initKickoff()/loadKickoffMatches()
+   (which fetched /api/kickoff/matches and used a different, poorer data
+   shape without injuries/tactics/facts/H2H) has been removed — see the fix
+   log at the top of wwwroot/js/site.js. Keeping a single source of truth
+   avoids the two engines racing to render into the same DOM elements. *@
 
 <div class="page-header">
     <div>
@@ -21,12 +27,10 @@
 
 <div style="padding: 0 var(--space-6) var(--space-8);">
 
-    @* ---- Upcoming matches tabs ---- *@
     <div class="filter-chips mb-5" id="kickoffMatchTabs">
-        @* Injected by JS *@
+        @* Injected by the embedded script below *@
     </div>
 
-    @* ---- Active preview card ---- *@
     <div class="kickoff-hero panel mb-5" id="kickoffHeroCard">
         <div class="kickoff-countdown-bar" id="kickoffCountdownBar">
             <span class="dot live"></span>
@@ -36,22 +40,21 @@
 
         <div class="kickoff-teams-row">
             <div class="kickoff-team">
-                <div class="kickoff-team-flag" id="heroHomeFlag">🇧🇷</div>
-                <div class="kickoff-team-name" id="heroHomeName">Brazil</div>
-                <div class="kickoff-team-record text-secondary" id="heroHomeRecord">W4 D1 L0</div>
+                <div class="kickoff-team-flag" id="heroHomeFlag">🏁</div>
+                <div class="kickoff-team-name" id="heroHomeName">—</div>
+                <div class="kickoff-team-record text-secondary" id="heroHomeRecord"></div>
             </div>
             <div class="kickoff-vs-block">
                 <div class="kickoff-vs">VS</div>
-                <div class="kickoff-match-info text-secondary" id="heroMatchInfo">QF · MetLife Stadium · 19:00 CET</div>
+                <div class="kickoff-match-info text-secondary" id="heroMatchInfo"></div>
             </div>
             <div class="kickoff-team kickoff-team-right">
-                <div class="kickoff-team-flag" id="heroAwayFlag">🇦🇷</div>
-                <div class="kickoff-team-name" id="heroAwayName">Argentina</div>
-                <div class="kickoff-team-record text-secondary" id="heroAwayRecord">W3 D2 L0</div>
+                <div class="kickoff-team-flag" id="heroAwayFlag">🏁</div>
+                <div class="kickoff-team-name" id="heroAwayName">—</div>
+                <div class="kickoff-team-record text-secondary" id="heroAwayRecord"></div>
             </div>
         </div>
 
-        @* ---- Info tabs inside the card ---- *@
         <div class="kickoff-tabs">
             <button class="kickoff-tab active" onclick="showKickoffTab(event,'injuries')">🏥 Injuries</button>
             <button class="kickoff-tab" onclick="showKickoffTab(event,'tactics')">⚽ Tactics</button>
@@ -59,98 +62,46 @@
             <button class="kickoff-tab" onclick="showKickoffTab(event,'h2h')">📊 Head to Head</button>
         </div>
 
-        @* Injuries *@
         <div class="kickoff-tab-panel active" id="kpanel-injuries">
-            <div class="row g-4" id="injuriesList">
-                @* Injected by JS *@
-            </div>
+            <div class="row g-4" id="injuriesList"></div>
         </div>
-
-        @* Tactics *@
         <div class="kickoff-tab-panel" id="kpanel-tactics">
-            <div class="row g-4" id="tacticsList">
-                @* Injected by JS *@
-            </div>
+            <div class="row g-4" id="tacticsList"></div>
         </div>
-
-        @* Weird Facts *@
         <div class="kickoff-tab-panel" id="kpanel-facts">
-            <div class="kickoff-facts-grid" id="factsList">
-                @* Injected by JS *@
-            </div>
+            <div class="kickoff-facts-grid" id="factsList"></div>
         </div>
-
-        @* Head to Head *@
         <div class="kickoff-tab-panel" id="kpanel-h2h">
-            <div class="kickoff-h2h" id="h2hContent">
-                @* Injected by JS *@
-            </div>
+            <div class="kickoff-h2h" id="h2hContent"></div>
         </div>
     </div>
 
-    @* ---- All upcoming previews grid ---- *@
     <h2 style="font-size:20px;margin-bottom:var(--space-4);">All Upcoming Matches</h2>
-    <div class="row g-4" id="kickoffGrid">
-        @* Injected by JS *@
-    </div>
+    <div class="row g-4" id="kickoffGrid"></div>
 </div>
 
-@* ===== PASS SERVER DATA TO JS ===== *@
+@* ===== SERVER DATA (real, from KickoffController.Index) ===== *@
 @if (Model?.Matches != null && Model.Matches.Any())
 {
     <script>
         window.kickoffMatches = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(
-                    Model.Matches.Select(m => new
-                    {
-                            matchId = m.MatchId,
-                            homeTeamName = m.HomeTeamName,
-                            homeTeamCode = m.HomeTeamCode,
-                            awayTeamName = m.AwayTeamName,
-                            awayTeamCode = m.AwayTeamCode,
-                            kickoffUtc = m.KickoffUtc.ToString("o"),
-                            stadiumInfo = m.StadiumInfo,
-                            homeInjuries = m.HomeInjuries.Select(i => new
-                            {
-                                    playerName = i.PlayerName,
-                                    role = i.Role,
-                                    status = i.Status
-                            }),
-                            awayInjuries = m.AwayInjuries.Select(i => new
-                            {
-                                    playerName = i.PlayerName,
-                                    role = i.Role,
-                                    status = i.Status
-                            }),
-                            homeTactic = m.HomeTactic == null ? null : new
-                            {
-                                    formation = m.HomeTactic.Formation,
-                                    style = m.HomeTactic.Style,
-                                    keyPlayer = m.HomeTactic.KeyPlayer,
-                                    keyPlayerInitial = m.HomeTactic.KeyPlayerInitial
-                            },
-                            awayTactic = m.AwayTactic == null ? null : new
-                            {
-                                    formation = m.AwayTactic.Formation,
-                                    style = m.AwayTactic.Style,
-                                    keyPlayer = m.AwayTactic.KeyPlayer,
-                                    keyPlayerInitial = m.AwayTactic.KeyPlayerInitial
-                            },
-                            facts = m.Facts.Select(f => new
-                            {
-                                    emoji = f.Emoji,
-                                    text = f.Text,
-                                    color = f.Color
-                            }),
-                            h2h = m.H2H == null ? null : new
-                            {
-                                    homeWins = m.H2H.HomeWins,
-                                    draws = m.H2H.Draws,
-                                    awayWins = m.H2H.AwayWins,
-                                    homeGoals = m.H2H.HomeGoals,
-                                    awayGoals = m.H2H.AwayGoals
-                            }
-                    })
-            ));
+                                    Model.Matches.Select(m => new
+                                    {
+                                                matchId = m.MatchId,
+                                                homeTeamName = m.HomeTeamName,
+                                                homeTeamCode = m.HomeTeamCode,
+                                                awayTeamName = m.AwayTeamName,
+                                                awayTeamCode = m.AwayTeamCode,
+                                                kickoffUtc = m.KickoffUtc.ToString("o"),
+                                                stadiumInfo = m.StadiumInfo,
+                                                homeInjuries = m.HomeInjuries.Select(i => new { playerName = i.PlayerName, role = i.Role, status = i.Status }),
+                                                awayInjuries = m.AwayInjuries.Select(i => new { playerName = i.PlayerName, role = i.Role, status = i.Status }),
+                                                homeTactic = m.HomeTactic == null ? null : new { formation = m.HomeTactic.Formation, style = m.HomeTactic.Style, keyPlayer = m.HomeTactic.KeyPlayer, keyPlayerInitial = m.HomeTactic.KeyPlayerInitial },
+                                                awayTactic = m.AwayTactic == null ? null : new { formation = m.AwayTactic.Formation, style = m.AwayTactic.Style, keyPlayer = m.AwayTactic.KeyPlayer, keyPlayerInitial = m.AwayTactic.KeyPlayerInitial },
+                                                facts = m.Facts.Select(f => new { emoji = f.Emoji, text = f.Text, color = f.Color }),
+                                                h2h = m.H2H == null ? null : new { homeWins = m.H2H.HomeWins, draws = m.H2H.Draws, awayWins = m.H2H.AwayWins, homeGoals = m.H2H.HomeGoals, awayGoals = m.H2H.AwayGoals }
+                                    })
+                    ));
     </script>
 }
 else
@@ -158,17 +109,12 @@ else
     <script>window.kickoffMatches = [];</script>
 }
 
-@* ===== DEV B: COMPLETE JAVASCRIPT RENDERING ENGINE ===== *@
 <script>
     (function() {
     'use strict';
 
-    // =============================================
-    // DEV B: READ FROM window.kickoffMatches
-    // =============================================
     const matches = window.kickoffMatches || [];
 
-    // ---------- UTILITY FUNCTIONS ----------
     function getFlag(countryCode) {
     if (!countryCode) return '🏁';
     const codePoints = countryCode.toUpperCase().split('').map(c => 0x1F1E6 + c.charCodeAt(0) - 65);
@@ -189,8 +135,6 @@ else
     if (diffMs < 3600000) return { label: 'SOON', dot: 'warning' };
     return { label: 'UPCOMING', dot: 'idle' };
     }
-
-    // ---------- RENDER FUNCTIONS ----------
 
     function renderTabs(matches) {
     const container = document.getElementById('kickoffMatchTabs');
@@ -221,7 +165,6 @@ else
     document.getElementById('heroAwayFlag').textContent = getFlag(match.awayTeamCode);
     document.getElementById('heroMatchInfo').textContent = match.stadiumInfo || formatDate(match.kickoffUtc);
 
-    // Countdown
     const countdownEl = document.getElementById('kickoffCountdown');
     const labelEl = document.getElementById('kickoffCountdownLabel');
     if (status.label === 'LIVE') {
@@ -232,7 +175,6 @@ else
     updateCountdown(match.kickoffUtc, countdownEl);
     setInterval(() => updateCountdown(match.kickoffUtc, countdownEl), 1000);
     }
-    // Dot color
     document.querySelector('.kickoff-countdown-bar .dot').className = `dot ${status.dot}`;
     }
 
@@ -332,15 +274,17 @@ else
     <div><div style="font-size:28px;font-weight:700;color:var(--text-secondary);">${h2h.draws}</div><div class="text-secondary">Draws</div></div>
     <div><div style="font-size:28px;font-weight:700;color:var(--red);">${h2h.awayWins}</div><div class="text-secondary">${match.awayTeamCode} Wins</div></div>
     </div>
-    <div style="display:flex;gap:4px;height:12px;border-radius:6px;overflow:hidden;background:var(--bg-secondary);">
+    <div style="display:flex;gap:4px;height:12px;border-radius:6px;overflow:hidden;background:var(--bg-pill);">
     <div style="flex:${homePct};background:var(--green);"></div>
     <div style="flex:${drawPct};background:var(--text-secondary);"></div>
     <div style="flex:${awayPct};background:var(--red);"></div>
     </div>
     <div style="margin-top:var(--space-2);font-size:13px;color:var(--text-secondary);text-align:center;">
     ${total} matches · ${h2h.homeGoals || 0} goals scored by ${match.homeTeamCode}, ${h2h.awayGoals || 0} by ${match.awayTeamCode}
-    </div>
-    `;
+    </div>`;
+    // FIX: was `background:var(--bg-secondary)`, an undefined variable
+    // (see theme-fixes.css note). Now uses var(--bg-pill), which is
+    // actually declared in theme.css :root.
     }
 
     function renderGrid(matches) {
@@ -368,7 +312,6 @@ else
     container.innerHTML = html;
     }
 
-    // ---------- GLOBAL FUNCTIONS (exposed to HTML onclick) ----------
     window.selectKickoffMatch = function(index) {
     const match = matches[index];
     if (!match) return;
@@ -377,16 +320,13 @@ else
     renderTactics(match);
     renderFacts(match);
     renderH2H(match);
-    // Update active tab
     document.querySelectorAll('.filter-chip').forEach((el, i) => {
     el.classList.toggle('active', i === index);
     });
-    // Reset tab panels to injuries
     document.querySelectorAll('.kickoff-tab-panel').forEach(el => el.classList.remove('active'));
     document.getElementById('kpanel-injuries').classList.add('active');
     document.querySelectorAll('.kickoff-tab').forEach(el => el.classList.remove('active'));
     document.querySelector('.kickoff-tab[onclick*="injuries"]').classList.add('active');
-    // Scroll to hero
     document.getElementById('kickoffHeroCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
@@ -408,8 +348,7 @@ else
     renderGrid(filtered);
     };
 
-    // ---------- INIT ----------
-    function initKickoff() {
+    function initKickoffPage() {
     if (!matches.length) {
     document.getElementById('kickoffMatchTabs').innerHTML = '<span class="text-secondary">No upcoming matches</span>';
     document.getElementById('kickoffGrid').innerHTML = '<div class="text-secondary" style="padding:var(--space-6);text-align:center;">No upcoming matches found.</div>';
@@ -417,15 +356,13 @@ else
     }
     renderTabs(matches);
     renderGrid(matches);
-    // Select first match by default
     window.selectKickoffMatch(0);
     }
 
-    // Run on DOM ready
     if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initKickoff);
+    document.addEventListener('DOMContentLoaded', initKickoffPage);
     } else {
-    initKickoff();
+    initKickoffPage();
     }
 
     })();

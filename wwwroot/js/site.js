@@ -1,19 +1,45 @@
 ﻿/* ===================================================================
    site.js — GoldenWhistle · ALL REAL DATA FROM API
    NO FAKE DATA — Everything comes from the database
+
+   FIX LOG (see GoldenWhistle_Audit.md for full detail):
+   - initKickoff() / loadKickoffMatches() / renderKickoffTabs() /
+     renderKickoffGrid() REMOVED. Kickoff/Index.cshtml already ships its own
+     complete rendering engine (reading window.kickoffMatches, which is
+     server-rendered from the *real* rich KickoffMatchViewModel — injuries,
+     tactics, facts, H2H). Both engines used to run at once, fighting over
+     the same DOM ids (#kickoffMatchTabs, #kickoffGrid, hero fields...) with
+     incompatible field names (e.g. m.homeCode vs m.homeTeamCode). Keeping
+     only the view's own script removes that race condition.
+   - renderMarketListings(): fixed field names to match the real JSON shape
+     returned by MarketplaceController.GetListings (camelCase serialization
+     of Id/Title/PlayerName/Price/Size/Condition/Tag/Seller/SellerRating/
+     IsVerified/ImageUrl). Previously read l.rating (doesn't exist),
+     l.verified (doesn't exist, it's l.isVerified), and treated l.price as a
+     string when the API returns a JSON number — .replace() on a number
+     threw at runtime and silently broke the "Under £100" filter.
+   - inviteFriend(): previously POSTed to a nonexistent /api/league/invite
+     with a raw email address. There is no email-sending service anywhere in
+     this codebase. Rewritten to use the real, already-implemented
+     GET /api/league/{id}/invite endpoint and share/copy the join link
+     instead of pretending to send an email.
+   - Added refreshNotifBadge(): the topbar badge used to be a hardcoded "3"
+     in the HTML, shown to every user regardless of their real unread count.
+     This now fetches real notifications on page load and sets the badge
+     from actual data (hiding it entirely when there are none).
    =================================================================== */
 
 // ---------------------------------------------------------------
 // 1. CHART.JS GLOBAL DEFAULTS
 // ---------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
-    if (!window.Chart) return;
-
-    Chart.defaults.color = '#8C97AD';
-    Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
-    Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
-    Chart.defaults.animation = { duration: 1100, easing: 'easeOutQuart' };
-    Chart.defaults.animations.colors = { duration: 400 };
+    if (window.Chart) {
+        Chart.defaults.color = '#8C97AD';
+        Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
+        Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+        Chart.defaults.animation = { duration: 1100, easing: 'easeOutQuart' };
+        Chart.defaults.animations.colors = { duration: 400 };
+    }
 
     const page = document.body.dataset.page;
     if (page === 'dashboard') initDashboard();
@@ -25,15 +51,30 @@ document.addEventListener('DOMContentLoaded', () => {
     if (page === 'simulator') initSimulator();
     if (page === 'profile') initProfile();
     if (page === 'settings') initSettings();
-    if (page === 'kickoff') initKickoff();
+    // NOTE: 'kickoff' intentionally NOT dispatched here anymore —
+    // Kickoff/Index.cshtml owns its own rendering (see fix log above).
 
+    // Real unread-notification badge instead of a hardcoded "3".
+    if (page && page !== 'home') refreshNotifBadge();
+
+    // FIX (previously undiscovered bug): every data-action button
+    // (share-bracket, lock-predictions, reset-simulator, generate-narrative,
+    // locate-me, get-directions, book-table, invite-friend...) used a
+    // kebab-case string, but the handler functions are camelCase
+    // (shareBracket, lockPredictions...). `window['share-bracket']` is never
+    // defined, so `typeof window[action] === 'function'` was always false —
+    // every single one of these buttons has been silently doing nothing.
     document.querySelectorAll('[data-action]').forEach(el => {
-        el.addEventListener('click', (e) => {
-            const action = el.dataset.action;
-            if (typeof window[action] === 'function') window[action]();
+        el.addEventListener('click', () => {
+            const fnName = kebabToCamel(el.dataset.action);
+            if (typeof window[fnName] === 'function') window[fnName](el);
         });
     });
 });
+
+function kebabToCamel(str) {
+    return str.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+}
 
 // ---------------------------------------------------------------
 // 2. SHARED ANIMATION HELPERS
@@ -78,7 +119,6 @@ async function updateFanPulseFromAPI() {
         updateFanPulseUI(data.ecstasy, data.anxious, data.agony, data.total);
     } catch (e) {
         console.warn('Error loading fan pulse:', e);
-        // Ne pas afficher de données fallback - laisser vide
     }
 }
 
@@ -155,11 +195,12 @@ function initDashboard() {
         });
     }
 
+    // Now backed by a real hub (Hubs/LeaderboardHub.cs, mapped in Program.cs)
+    // and actually broadcast from BracketScoringService after scoring.
     const conn = initSignalRConnection('/hubs/leaderboard');
     if (conn) {
-        conn.on('LeaderboardUpdated', (payload) => {
-            console.log('Leaderboard updated:', payload);
-            // Re-fetch leaderboard data
+        conn.on('LeaderboardUpdated', () => {
+            location.reload();
         });
     }
 }
@@ -172,6 +213,9 @@ function initBracket() {
 
     const conn = initSignalRConnection('/hubs/leaderboard');
     if (conn) {
+        conn.on('LeaderboardUpdated', () => {
+            location.reload();
+        });
         conn.on('MatchEventPushed', (event) => {
             appendLiveEvent(event);
         });
@@ -218,18 +262,38 @@ function lockPredictions() {
     }
 }
 
-function inviteFriend() {
-    const email = prompt('Enter your friend\'s email:');
-    if (email) {
-        fetch('/api/league/invite', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: email })
-        })
-            .then(r => r.json())
-            .then(data => alert(data.message || 'Invitation sent!'))
-            .catch(() => alert('Error sending invitation.'));
+// FIX: previously POSTed a raw email to a nonexistent /api/league/invite
+// route. There is no email-sending backend anywhere in this project. This
+// now uses the real GET /api/league/{id}/invite endpoint (which already
+// returns joinLink + a QR code) and lets the user copy/share the link.
+// `el` is the clicked button, passed automatically by the fixed
+// data-action dispatcher above; reads data-league-id from it.
+function inviteFriend(el) {
+    const leagueId = el?.dataset?.leagueId;
+    if (!leagueId) {
+        console.warn('inviteFriend: missing data-league-id on the trigger element');
+        alert('You need to be in a league to invite friends.');
+        return;
     }
+    fetch(`/api/league/${leagueId}/invite`)
+        .then(r => {
+            if (!r.ok) throw new Error('Failed to load invite link');
+            return r.json();
+        })
+        .then(data => {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Join my GoldenWhistle league!',
+                    text: 'Join my private league on GoldenWhistle',
+                    url: data.joinLink
+                });
+            } else {
+                navigator.clipboard.writeText(data.joinLink).then(() => {
+                    alert('Invite link copied to clipboard!');
+                });
+            }
+        })
+        .catch(() => alert('Error loading invite link.'));
 }
 
 // ---------------------------------------------------------------
@@ -250,29 +314,31 @@ function initMood() {
 
     updateFanPulseUI(moodState.ecstasy, moodState.anxious, moodState.agony, moodState.total || 0);
 
-    moodDoughnutChart = new Chart(moodCanvas, {
-        type: 'doughnut',
-        data: {
-            datasets: [{
-                data: [moodState.ecstasy, moodState.anxious, moodState.agony],
-                backgroundColor: ['#00FF87', '#FFB700', '#FF4D6D'],
-                borderWidth: 0,
-                hoverOffset: 6
-            }]
-        },
-        options: {
-            cutout: '70%',
-            animation: { animateRotate: true, duration: 1000 },
-            plugins: { legend: { display: false }, tooltip: { enabled: false } }
-        }
-    });
+    if (moodCanvas) {
+        moodDoughnutChart = new Chart(moodCanvas, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [moodState.ecstasy, moodState.anxious, moodState.agony],
+                    backgroundColor: ['#00FF87', '#FFB700', '#FF4D6D'],
+                    borderWidth: 0,
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                cutout: '70%',
+                animation: { animateRotate: true, duration: 1000 },
+                plugins: { legend: { display: false }, tooltip: { enabled: false } }
+            }
+        });
+    }
 
     const tlCanvas = document.getElementById('moodTimelineChart');
     if (tlCanvas) {
-        const tlLabels = tlCanvas.dataset.labels?.split(',') || [];
-        const tlEcstasy = tlCanvas.dataset.ecstasy?.split(',').map(Number) || [];
-        const tlAnxiety = tlCanvas.dataset.anxiety?.split(',').map(Number) || [];
-        const tlAgony = tlCanvas.dataset.agony?.split(',').map(Number) || [];
+        const tlLabels = tlCanvas.dataset.labels?.split(',').filter(Boolean) || [];
+        const tlEcstasy = tlCanvas.dataset.ecstasy?.split(',').filter(Boolean).map(Number) || [];
+        const tlAnxiety = tlCanvas.dataset.anxiety?.split(',').filter(Boolean).map(Number) || [];
+        const tlAgony = tlCanvas.dataset.agony?.split(',').filter(Boolean).map(Number) || [];
 
         moodTimelineChart = new Chart(tlCanvas, {
             type: 'line',
@@ -280,37 +346,19 @@ function initMood() {
                 labels: tlLabels,
                 datasets: [
                     {
-                        label: 'Ecstasy',
-                        data: tlEcstasy,
-                        borderColor: '#00FF87',
-                        backgroundColor: 'rgba(0,255,135,0.06)',
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#00FF87',
-                        pointRadius: 3,
-                        pointHoverRadius: 6
+                        label: 'Ecstasy', data: tlEcstasy, borderColor: '#00FF87',
+                        backgroundColor: 'rgba(0,255,135,0.06)', fill: true, tension: 0.4,
+                        pointBackgroundColor: '#00FF87', pointRadius: 3, pointHoverRadius: 6
                     },
                     {
-                        label: 'Anxious',
-                        data: tlAnxiety,
-                        borderColor: '#FFB700',
-                        backgroundColor: 'rgba(255,183,0,0.06)',
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#FFB700',
-                        pointRadius: 3,
-                        pointHoverRadius: 6
+                        label: 'Anxious', data: tlAnxiety, borderColor: '#FFB700',
+                        backgroundColor: 'rgba(255,183,0,0.06)', fill: true, tension: 0.4,
+                        pointBackgroundColor: '#FFB700', pointRadius: 3, pointHoverRadius: 6
                     },
                     {
-                        label: 'Agony',
-                        data: tlAgony,
-                        borderColor: '#FF4D6D',
-                        backgroundColor: 'rgba(255,77,109,0.06)',
-                        fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#FF4D6D',
-                        pointRadius: 3,
-                        pointHoverRadius: 6
+                        label: 'Agony', data: tlAgony, borderColor: '#FF4D6D',
+                        backgroundColor: 'rgba(255,77,109,0.06)', fill: true, tension: 0.4,
+                        pointBackgroundColor: '#FF4D6D', pointRadius: 3, pointHoverRadius: 6
                     }
                 ]
             },
@@ -319,30 +367,14 @@ function initMood() {
                 plugins: {
                     legend: {
                         display: true,
-                        labels: {
-                            color: '#8C97AD',
-                            boxWidth: 12,
-                            padding: 12,
-                            usePointStyle: true,
-                            pointStyle: 'circle'
-                        }
+                        labels: { color: '#8C97AD', boxWidth: 12, padding: 12, usePointStyle: true, pointStyle: 'circle' }
                     }
                 },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        grid: { color: 'rgba(255,255,255,0.06)' },
-                        ticks: { color: '#8C97AD' }
-                    },
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: '#8C97AD' }
-                    }
+                    y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.06)' }, ticks: { color: '#8C97AD' } },
+                    x: { grid: { display: false }, ticks: { color: '#8C97AD' } }
                 },
-                interaction: {
-                    intersect: false,
-                    mode: 'index'
-                }
+                interaction: { intersect: false, mode: 'index' }
             }
         });
     }
@@ -352,12 +384,7 @@ function initMood() {
     const moodConn = initSignalRConnection('/hubs/moodmap');
     if (moodConn) {
         moodConn.on('ReceiveTallies', (payload) => {
-            applyMoodUpdate(
-                payload.ecstasy || 0,
-                payload.anxiety || 0,
-                payload.agony || 0,
-                payload.total || 0
-            );
+            applyMoodUpdate(payload.ecstasy || 0, payload.anxiety || 0, payload.agony || 0, payload.total || 0);
         });
     }
 }
@@ -393,12 +420,7 @@ async function loadMatch(matchId) {
         document.getElementById('matchAwayTeam').textContent = data.awayTeam;
         document.getElementById('matchStatus').textContent = data.status;
         document.getElementById('matchScore').textContent = data.score;
-        applyMoodUpdate(
-            data.ecstasyPct || 0,
-            data.anxietyPct || 0,
-            data.agonyPct || 0,
-            data.totalVotes || 0
-        );
+        applyMoodUpdate(data.ecstasyPct || 0, data.anxietyPct || 0, data.agonyPct || 0, data.totalVotes || 0);
         document.getElementById('currentMatchId').value = matchId;
     } catch (e) {
         console.warn('Error loading match:', e.message);
@@ -409,9 +431,7 @@ async function castVote(emotion, matchId) {
     document.querySelectorAll('.emotion-btn').forEach(btn =>
         btn.classList.remove('selected-ecstasy', 'selected-anxious', 'selected-agony'));
     const selectedBtn = document.querySelector(`[data-emotion="${emotion}"]`);
-    if (selectedBtn) {
-        selectedBtn.classList.add(`selected-${emotion}`);
-    }
+    if (selectedBtn) selectedBtn.classList.add(`selected-${emotion}`);
 
     const emojis = { ecstasy: '🤩', anxious: '😬', agony: '😭' };
     const center = document.getElementById('doughnutCenter');
@@ -431,25 +451,14 @@ async function castVote(emotion, matchId) {
         const response = await fetch('/api/mood/vote', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                matchId: matchIdValue,
-                mood: moodMap[emotion]
-            })
+            body: JSON.stringify({ matchId: matchIdValue, mood: moodMap[emotion] })
         });
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         const data = await response.json();
-
         if (data) {
-            applyMoodUpdate(
-                data.ecstasyPct || 0,
-                data.anxietyPct || 0,
-                data.agonyPct || 0,
-                data.totalVotes || 0
-            );
+            applyMoodUpdate(data.ecstasyPct || 0, data.anxietyPct || 0, data.agonyPct || 0, data.totalVotes || 0);
         }
     } catch (e) {
         console.warn('Vote API error:', e.message);
@@ -503,9 +512,7 @@ function initPub() {
     loadPubs(51.528, -0.068);
 
     const searchInput = document.getElementById('pubSearchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => filterPubs(e.target.value));
-    }
+    if (searchInput) searchInput.addEventListener('input', (e) => filterPubs(e.target.value));
 
     document.querySelectorAll('[data-filter]').forEach(chip => {
         chip.addEventListener('click', () => {
@@ -653,7 +660,6 @@ async function loadDataStats() {
         if (!response.ok) throw new Error('Failed to load data stats');
         const data = await response.json();
 
-        // xG Timeline
         const xgCanvas = document.getElementById('xgTimelineChart');
         if (xgCanvas && data.xgTimeline) {
             new Chart(xgCanvas, {
@@ -662,20 +668,14 @@ async function loadDataStats() {
                     labels: data.xgTimeline.labels || [],
                     datasets: [
                         {
-                            label: data.homeTeam + ' xG',
-                            data: data.xgTimeline.homeXg || [],
-                            borderColor: '#00FF87',
-                            backgroundColor: 'rgba(0,255,135,0.06)',
-                            fill: false, tension: 0.4,
-                            pointBackgroundColor: '#00FF87', pointRadius: 4
+                            label: (data.homeTeam || 'Home') + ' xG', data: data.xgTimeline.homeXg || [],
+                            borderColor: '#00FF87', backgroundColor: 'rgba(0,255,135,0.06)',
+                            fill: false, tension: 0.4, pointBackgroundColor: '#00FF87', pointRadius: 4
                         },
                         {
-                            label: data.awayTeam + ' xG',
-                            data: data.xgTimeline.awayXg || [],
-                            borderColor: '#FFB700',
-                            backgroundColor: 'rgba(255,183,0,0.06)',
-                            fill: false, tension: 0.4,
-                            pointBackgroundColor: '#FFB700', pointRadius: 4
+                            label: (data.awayTeam || 'Away') + ' xG', data: data.xgTimeline.awayXg || [],
+                            borderColor: '#FFB700', backgroundColor: 'rgba(255,183,0,0.06)',
+                            fill: false, tension: 0.4, pointBackgroundColor: '#FFB700', pointRadius: 4
                         }
                     ]
                 },
@@ -683,11 +683,7 @@ async function loadDataStats() {
                     animation: drawInLineAnimation(),
                     plugins: {
                         legend: { display: true, labels: { color: '#8C97AD' } },
-                        tooltip: {
-                            callbacks: {
-                                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`
-                            }
-                        }
+                        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}` } }
                     },
                     scales: {
                         y: { min: 0, max: 2.5, grid: { color: 'rgba(255,255,255,0.06)' } },
@@ -697,7 +693,6 @@ async function loadDataStats() {
             });
         }
 
-        // Team Radar
         const radarCanvas = document.getElementById('teamRadarChart');
         if (radarCanvas && data.radar) {
             new Chart(radarCanvas, {
@@ -707,9 +702,7 @@ async function loadDataStats() {
                     datasets: [{
                         label: data.homeTeam || 'Home',
                         data: data.radar.homeData || [0, 0, 0, 0, 0, 0],
-                        borderColor: '#00FF87',
-                        backgroundColor: 'rgba(0,255,135,0.15)',
-                        pointBackgroundColor: '#00FF87'
+                        borderColor: '#00FF87', backgroundColor: 'rgba(0,255,135,0.15)', pointBackgroundColor: '#00FF87'
                     }]
                 },
                 options: {
@@ -726,7 +719,6 @@ async function loadDataStats() {
             });
         }
 
-        // Possession Flow
         const possessionCanvas = document.getElementById('possessionChart');
         if (possessionCanvas && data.possession) {
             new Chart(possessionCanvas, {
@@ -734,11 +726,8 @@ async function loadDataStats() {
                 data: {
                     labels: data.possession.labels || [],
                     datasets: [{
-                        label: data.homeTeam + ' %',
-                        data: data.possession.values || [],
-                        backgroundColor: '#00FF87',
-                        borderRadius: 6,
-                        maxBarThickness: 40
+                        label: (data.homeTeam || 'Home') + ' %', data: data.possession.values || [],
+                        backgroundColor: '#00FF87', borderRadius: 6, maxBarThickness: 40
                     }]
                 },
                 options: {
@@ -752,10 +741,10 @@ async function loadDataStats() {
             });
         }
 
-        // Heatmap
-        if (data.heatmap) {
-            drawHeatmapWithData(data.heatmap);
-        }
+        // NOTE: the API no longer returns a "heatmap" block — the previous
+        // coordinates were entirely invented (not real touch-location data).
+        // See DataController.GetStats and GoldenWhistle_Audit.md §1.
+        if (data.heatmap) drawHeatmapWithData(data.heatmap);
 
     } catch (e) {
         console.warn('Error loading data stats:', e);
@@ -790,7 +779,6 @@ function drawHeatmapWithData(heatmapData) {
 function setHeatmapTeam(btn, team) {
     document.querySelectorAll('.heatmap-team-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
-    // Refresh heatmap with selected team
     loadDataStats();
 }
 
@@ -806,9 +794,7 @@ function initMarketplace() {
     loadMarketplaceListings();
 
     const searchInput = document.getElementById('marketSearchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => filterMarketListings(e.target.value));
-    }
+    if (searchInput) searchInput.addEventListener('input', (e) => filterMarketListings(e.target.value));
 
     document.querySelectorAll('[data-market-filter]').forEach(chip => {
         chip.addEventListener('click', () => {
@@ -826,12 +812,17 @@ async function loadMarketplaceListings() {
         if (!response.ok) throw new Error('Failed to load listings');
         marketplaceListings = await response.json();
         renderMarketListings(marketplaceListings);
+        // Keep the header count honest instead of the old hardcoded "2,841".
+        const countEl = document.getElementById('listingCount');
+        if (countEl) countEl.textContent = marketplaceListings.length.toLocaleString('en-US');
     } catch (e) {
         console.warn('Error loading listings:', e);
         renderMarketListings([]);
     }
 }
 
+// FIX: field names now match the real API response
+// (sellerRating not rating, isVerified not verified, price is a number).
 function renderMarketListings(listings) {
     const grid = document.getElementById('listingsGrid');
     if (!grid) return;
@@ -845,7 +836,11 @@ function renderMarketListings(listings) {
             : l.tag === 'rare'
                 ? `<span class="listing-tag listing-tag-rare">💎 Rare</span>`
                 : '';
-        const stars = '★'.repeat(Math.floor(l.rating || 0)) + '☆'.repeat(5 - Math.floor(l.rating || 0));
+        const rating = l.sellerRating || 0;
+        const stars = '★'.repeat(Math.floor(rating)) + '☆'.repeat(5 - Math.floor(rating));
+        const priceLabel = typeof l.price === 'number'
+            ? l.price.toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 })
+            : l.price;
 
         col.innerHTML = `
             <div class="listing-card">
@@ -854,7 +849,7 @@ function renderMarketListings(listings) {
                 `<svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--text-primary)" stroke-width="1"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 000-7.78z"/></svg>`
             }
                     ${tagHtml}
-                    <span class="listing-price">${l.price}</span>
+                    <span class="listing-price">${priceLabel}</span>
                 </div>
                 <div class="listing-body">
                     <div class="listing-title">${l.title}</div>
@@ -868,7 +863,7 @@ function renderMarketListings(listings) {
                             <span class="listing-seller-stars">${stars}</span>
                             <span class="listing-seller-name ms-1">${l.seller}</span>
                         </div>
-                        ${l.verified ? '<span class="badge-verified">Verified</span>' : ''}
+                        ${l.isVerified ? '<span class="badge-verified">Verified</span>' : ''}
                     </div>
                     <div class="listing-actions">
                         <button class="btn btn-primary" onclick="buyNow(${l.id})">Buy Now</button>
@@ -893,8 +888,9 @@ function filterMarketListings(query) {
     if (activeMarketFilter === 'bnwt') filtered = filtered.filter(l => l.condition === 'BNWT');
     else if (activeMarketFilter === 'match') filtered = filtered.filter(l => l.condition === 'Match Worn');
     else if (activeMarketFilter === 'player') filtered = filtered.filter(l => l.player.includes('#'));
-    else if (activeMarketFilter === 'budget') filtered = filtered.filter(l => parseInt(l.price.replace(/[^0-9]/g, '')) < 100);
-    else if (activeMarketFilter === 'auth') filtered = filtered.filter(l => l.verified);
+    // FIX: l.price is a real number now, not a string — no more .replace().
+    else if (activeMarketFilter === 'budget') filtered = filtered.filter(l => Number(l.price) < 100);
+    else if (activeMarketFilter === 'auth') filtered = filtered.filter(l => l.isVerified);
     renderMarketListings(filtered);
 }
 
@@ -903,13 +899,17 @@ function openMessageModal(id) {
     const l = marketplaceListings.find(x => x.id === id);
     if (!l) return;
     document.getElementById('modalListingTitle').textContent = l.title;
-    document.getElementById('modalListingMeta').textContent = `${l.player} · ${l.price}`;
+    const priceLabel = typeof l.price === 'number'
+        ? l.price.toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 })
+        : l.price;
+    document.getElementById('modalListingMeta').textContent = `${l.player} · ${priceLabel}`;
     document.getElementById('messageModal').classList.add('visible');
 }
 
 function closeMessageModal() {
-    document.getElementById('messageModal').classList.remove('visible');
-    document.getElementById('messageText').value = '';
+    document.getElementById('messageModal')?.classList.remove('visible');
+    const textEl = document.getElementById('messageText');
+    if (textEl) textEl.value = '';
 }
 
 function buyNow(id) {
@@ -918,9 +918,17 @@ function buyNow(id) {
 
 function sendMessage() {
     const msg = document.getElementById('messageText').value.trim();
-    if (!msg) return;
-    closeMessageModal();
-    alert('Message sent!');
+    const listingId = selectedListingId;
+    if (!msg || !listingId) return;
+
+    fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId, message: msg })
+    })
+        .then(r => { if (!r.ok) throw new Error('Failed'); return r.json(); })
+        .then(() => { closeMessageModal(); alert('Message sent!'); })
+        .catch(() => alert('Error sending message.'));
 }
 
 // ---------------------------------------------------------------
@@ -939,11 +947,11 @@ async function loadSimulatorMatches() {
         if (!response.ok) throw new Error('Failed to load matches');
         simulatorMatches = await response.json();
         renderSliders();
-        updateBracket();
+        updateSimBracket();
     } catch (e) {
         console.warn('Error loading simulator matches:', e);
         renderSliders();
-        updateBracket();
+        updateSimBracket();
     }
 }
 
@@ -1000,12 +1008,11 @@ function updateSimBracket() {
         qfEl.innerHTML = winners.map(w => `
             <div class="sim-qf-winner ${w.draw ? 'draw' : w.upset ? 'upset' : 'expected'}">
                 <span>${w.code} ${w.name}</span>
-                ${w.upset ? '<span style="font-size:11px;">⚡ Upset!</span>' : ''}
             </div>`).join('');
     }
 
     const sfEl = document.getElementById('sfTeams');
-    if (sfEl) {
+    if (sfEl && winners.length >= 4) {
         sfEl.innerHTML = `
             <div class="sim-qf-winner">${winners[0].name}<br>vs<br>${winners[1].name}</div>
             <div class="sim-qf-winner mt-2">${winners[2].name}<br>vs<br>${winners[3].name}</div>`;
@@ -1013,11 +1020,14 @@ function updateSimBracket() {
 
     const f1 = document.getElementById('finalTeam1');
     const f2 = document.getElementById('finalTeam2');
-    if (f1) f1.textContent = winners[0].name;
-    if (f2) f2.textContent = winners[2].name;
+    if (f1 && winners[0]) f1.textContent = winners[0].name;
+    if (f2 && winners[2]) f2.textContent = winners[2].name;
 
+    // NOTE: win-probability percentages here are still a simple illustrative
+    // split (not derived from any real model) — see SimulatorController for
+    // the corresponding server-side calculation used by generateNarrative().
     const probEl = document.getElementById('winProbList');
-    if (probEl) {
+    if (probEl && winners[0] && winners[2]) {
         const probs = [
             { team: winners[0].name, pct: 58, color: 'var(--green)' },
             { team: winners[2].name, pct: 42, color: 'var(--amber)' },
@@ -1039,7 +1049,8 @@ function resetSimulator() {
     simulatorMatches.forEach(m => { m.homeScore = 0; m.awayScore = 0; });
     renderSliders();
     updateSimBracket();
-    document.getElementById('narrativeOutput').style.display = 'none';
+    const out = document.getElementById('narrativeOutput');
+    if (out) out.style.display = 'none';
 }
 
 async function generateNarrative() {
@@ -1083,172 +1094,18 @@ async function loadProfileStats() {
         if (!response.ok) throw new Error('Failed to load profile stats');
         const data = await response.json();
         document.getElementById('profilePredictions').textContent = data.totalPicks || 0;
-        document.getElementById('profileAccuracy').textContent = data.accuracy + '%' || '0%';
+        document.getElementById('profileAccuracy').textContent = (data.accuracy ?? 0) + '%';
         document.getElementById('profileRank').textContent = '#' + (data.rank || 0);
         document.getElementById('profileCorrect').textContent = data.correctPicks || 0;
         document.getElementById('profileTotalPicks').textContent = data.totalPicks || 0;
-        document.getElementById('profileAccuracyValue').textContent = data.accuracy + '%' || '0%';
+        document.getElementById('profileAccuracyValue').textContent = (data.accuracy ?? 0) + '%';
     } catch (e) {
         console.warn('Error loading profile:', e.message);
     }
 }
 
 // ---------------------------------------------------------------
-// 13. KICKOFF COMPANION PAGE — REAL DATA FROM API
-// ---------------------------------------------------------------
-let activeKickoffId = 1;
-let countdownInterval = null;
-let kickoffMatches = [];
-
-function initKickoff() {
-    updateFanPulseFromAPI();
-    loadKickoffMatches();
-}
-
-async function loadKickoffMatches() {
-    try {
-        const response = await fetch('/api/kickoff/matches');
-        if (!response.ok) throw new Error('Failed to load matches');
-        kickoffMatches = await response.json();
-        if (kickoffMatches.length > 0) {
-            renderKickoffTabs();
-            renderKickoffGrid();
-            loadKickoffMatchById(kickoffMatches[0].id);
-        }
-    } catch (e) {
-        console.warn('Error loading kickoff matches:', e);
-    }
-}
-
-function renderKickoffTabs() {
-    const tabs = document.getElementById('kickoffMatchTabs');
-    if (!tabs) return;
-    tabs.innerHTML = kickoffMatches.map(m => `
-        <span class="chip ${m.id === activeKickoffId ? 'active' : ''}"
-              onclick="loadKickoffMatchById(${m.id})">
-            ${m.homeFlag || '🏠'} ${m.homeCode} vs ${m.awayCode} ${m.awayFlag || '✈️'}
-        </span>`).join('');
-}
-
-function renderKickoffGrid() {
-    const grid = document.getElementById('kickoffGrid');
-    if (!grid) return;
-    grid.innerHTML = kickoffMatches.map(m => `
-        <div class="col-md-4">
-            <div class="kickoff-preview-card ${m.id === activeKickoffId ? 'active' : ''}"
-                 onclick="loadKickoffMatchById(${m.id})">
-                <div class="kickoff-preview-time">${formatKickoffTime(m.kickoff)}</div>
-                <div class="kickoff-preview-teams">
-                    <span>${m.homeFlag || '🏠'} ${m.homeName}</span>
-                    <span class="kickoff-preview-vs">vs</span>
-                    <span>${m.awayName} ${m.awayFlag || '✈️'}</span>
-                </div>
-                <div class="text-secondary mt-2" style="font-size:12px;">${m.info || ''}</div>
-            </div>
-        </div>`).join('');
-}
-
-function loadKickoffMatchById(id) {
-    const m = kickoffMatches.find(x => x.id === id);
-    if (!m) return;
-    activeKickoffId = id;
-
-    document.getElementById('heroHomeFlag').textContent = m.homeFlag || '🏠';
-    document.getElementById('heroHomeName').textContent = m.homeName;
-    document.getElementById('heroHomeRecord').textContent = m.homeRecord || '';
-    document.getElementById('heroAwayFlag').textContent = m.awayFlag || '✈️';
-    document.getElementById('heroAwayName').textContent = m.awayName;
-    document.getElementById('heroAwayRecord').textContent = m.awayRecord || '';
-    document.getElementById('heroMatchInfo').textContent = m.info || '';
-
-    renderKickoffTabs();
-    renderKickoffGrid();
-
-    if (countdownInterval) clearInterval(countdownInterval);
-    if (m.kickoff) {
-        updateKickoffCountdown(m.kickoff);
-        countdownInterval = setInterval(() => updateKickoffCountdown(m.kickoff), 1000);
-    }
-
-    // Load default tab
-    showKickoffTab(null, 'injuries');
-
-    // Render real data in tabs
-    renderInjuries(m);
-    renderTactics(m);
-    renderFacts(m);
-    renderH2H(m);
-}
-
-function formatKickoffTime(date) {
-    if (!date) return '--:--';
-    const d = new Date(date);
-    return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
-
-function updateKickoffCountdown(kickoffDate) {
-    const diff = new Date(kickoffDate) - new Date();
-    if (diff <= 0) {
-        document.getElementById('kickoffCountdown').textContent = 'LIVE NOW';
-        return;
-    }
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
-    document.getElementById('kickoffCountdown').textContent =
-        `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-function renderInjuries(m) {
-    const el = document.getElementById('injuriesList');
-    if (!el) return;
-    if (!m.injuries) {
-        el.innerHTML = '<div class="text-secondary">No injuries reported</div>';
-        return;
-    }
-    // Render from real data
-}
-
-function renderTactics(m) {
-    const el = document.getElementById('tacticsList');
-    if (!el) return;
-    if (!m.tactics) {
-        el.innerHTML = '<div class="text-secondary">No tactics available</div>';
-        return;
-    }
-    // Render from real data
-}
-
-function renderFacts(m) {
-    const el = document.getElementById('factsList');
-    if (!el) return;
-    if (!m.facts || m.facts.length === 0) {
-        el.innerHTML = '<div class="text-secondary">No facts available</div>';
-        return;
-    }
-    // Render from real data
-}
-
-function renderH2H(m) {
-    const el = document.getElementById('h2hContent');
-    if (!el) return;
-    if (!m.h2h) {
-        el.innerHTML = '<div class="text-secondary">No head-to-head data available</div>';
-        return;
-    }
-    // Render from real data
-}
-
-function showKickoffTab(evt, tabName) {
-    document.querySelectorAll('.kickoff-tab-panel').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('.kickoff-tab').forEach(t => t.classList.remove('active'));
-    const panel = document.getElementById('kpanel-' + tabName);
-    if (panel) panel.classList.add('active');
-    if (evt) evt.currentTarget.classList.add('active');
-}
-
-// ---------------------------------------------------------------
-// 14. CHATBOT FUNCTIONS
+// 13. CHATBOT FUNCTIONS
 // ---------------------------------------------------------------
 function toggleChat() {
     const panel = document.getElementById('chatPanel');
@@ -1323,7 +1180,7 @@ function escapeHtml(text) {
 }
 
 // ---------------------------------------------------------------
-//  15- NOTIFICATIONS - REAL DATA FROM API
+// 14. NOTIFICATIONS - REAL DATA FROM API
 // ---------------------------------------------------------------
 async function toggleNotifications() {
     const panel = document.getElementById('notifPanel');
@@ -1335,7 +1192,6 @@ async function toggleNotifications() {
     overlay?.classList.toggle('visible', panel.classList.contains('open'));
 
     if (panel.classList.contains('open')) {
-        // Charger les notifications réelles
         await loadNotifications();
         const badge = document.getElementById('notifBadge');
         if (badge) badge.style.display = 'none';
@@ -1348,10 +1204,27 @@ async function loadNotifications() {
         if (!response.ok) throw new Error('Failed to load notifications');
         const notifications = await response.json();
         renderNotifications(notifications);
+        return notifications;
     } catch (e) {
         console.warn('Error loading notifications:', e);
-        // Ne pas afficher de fallback - laisser vide
-        document.getElementById('notifList').innerHTML = '<div class="text-secondary">No notifications</div>';
+        const list = document.getElementById('notifList');
+        if (list) list.innerHTML = '<div class="text-secondary">No notifications</div>';
+        return [];
+    }
+}
+
+// NEW: sets the topbar badge from real data instead of the hardcoded "3"
+// that used to be baked directly into _Layout.cshtml for every user.
+async function refreshNotifBadge() {
+    const badge = document.getElementById('notifBadge');
+    if (!badge) return;
+    const notifications = await loadNotifications();
+    const unread = notifications.filter(n => !n.isRead).length;
+    if (unread > 0) {
+        badge.textContent = unread > 9 ? '9+' : String(unread);
+        badge.style.display = '';
+    } else {
+        badge.style.display = 'none';
     }
 }
 
@@ -1381,7 +1254,7 @@ function renderNotifications(notifications) {
 }
 
 // ---------------------------------------------------------------
-// 16. PROFILE MENU
+// 15. PROFILE MENU
 // ---------------------------------------------------------------
 function toggleProfileMenu() {
     const menu = document.getElementById('profileMenu');
@@ -1398,7 +1271,7 @@ document.addEventListener('click', (e) => {
 });
 
 // ---------------------------------------------------------------
-// 17. SEARCH FUNCTIONS
+// 16. SEARCH FUNCTIONS
 // ---------------------------------------------------------------
 async function handleGlobalSearch(query) {
     const dropdown = document.getElementById('searchDropdown');
@@ -1444,7 +1317,7 @@ document.addEventListener('click', (e) => {
 });
 
 // ---------------------------------------------------------------
-// 18. UTILITY FUNCTIONS
+// 17. UTILITY FUNCTIONS
 // ---------------------------------------------------------------
 function closeAllPanels() {
     document.getElementById('notifPanel')?.classList.remove('open');
@@ -1452,12 +1325,8 @@ function closeAllPanels() {
     document.getElementById('panelOverlay')?.classList.remove('visible');
 }
 
-function closeMessageModal() {
-    document.getElementById('messageModal')?.classList.remove('visible');
-}
-
 // ---------------------------------------------------------------
-// 19. HOMEPAGE SMOOTH SCROLL
+// 18. HOMEPAGE SMOOTH SCROLL
 // ---------------------------------------------------------------
 document.querySelectorAll('a[href^="#"]').forEach(a => {
     a.addEventListener('click', e => {

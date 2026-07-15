@@ -21,6 +21,13 @@ namespace GoldenWhistle.Controllers
             _userManager = userManager;
         }
 
+        // NOTE (audit §7, documented limitation): notifications here are
+        // still synthesized on every request rather than read from a
+        // persisted Notification table, so "isRead" cannot really change
+        // server-side yet — the topbar badge now reflects a real *count* of
+        // currently-relevant items (see refreshNotifBadge in site.js) rather
+        // than a hardcoded "3", but true per-notification read/unread state
+        // needs a real Notification table + migration as a follow-up.
         [HttpGet]
         public async Task<IActionResult> GetNotifications()
         {
@@ -32,7 +39,6 @@ namespace GoldenWhistle.Controllers
 
             var notifications = new List<object>();
 
-            // 1. Match à venir (si dans les 2 heures)
             var upcomingMatch = await _db.Matches
                 .Include(m => m.HomeTeam)
                 .Include(m => m.AwayTeam)
@@ -44,7 +50,12 @@ namespace GoldenWhistle.Controllers
             {
                 notifications.Add(new
                 {
-                    id = 1,
+                    // FIX: deterministic id derived from the match id
+                    // instead of a hardcoded "1" that could collide with the
+                    // live-match notifications below (which used
+                    // `3 + match.Id`, so a match with Id=... could produce
+                    // the exact same numeric id as this one or as id=2).
+                    id = $"upcoming-{upcomingMatch.Id}",
                     type = "live",
                     icon = "⚽",
                     title = "Match Starting Soon",
@@ -54,7 +65,6 @@ namespace GoldenWhistle.Controllers
                 });
             }
 
-            // 2. Leaderboard update (si l'utilisateur a gagné des points)
             var recentPicks = await _db.BracketPicks
                 .Where(p => p.UserId == userId && p.IsScored && p.ScoredAt > DateTime.UtcNow.AddHours(-24))
                 .ToListAsync();
@@ -66,7 +76,7 @@ namespace GoldenWhistle.Controllers
                 {
                     notifications.Add(new
                     {
-                        id = 2,
+                        id = $"points-{userId}",
                         type = "anxious",
                         icon = "🏆",
                         title = "Points Earned!",
@@ -77,7 +87,6 @@ namespace GoldenWhistle.Controllers
                 }
             }
 
-            // 3. Live matches en cours
             var liveMatches = await _db.Matches
                 .Include(m => m.HomeTeam)
                 .Include(m => m.AwayTeam)
@@ -88,7 +97,7 @@ namespace GoldenWhistle.Controllers
             {
                 notifications.Add(new
                 {
-                    id = 3 + match.Id,
+                    id = $"live-{match.Id}",
                     type = "live",
                     icon = "🔴",
                     title = $"LIVE: {match.HomeTeam.Name} vs {match.AwayTeam.Name}",
@@ -97,9 +106,6 @@ namespace GoldenWhistle.Controllers
                     isRead = false
                 });
             }
-
-            // Marquer comme lues
-            notifications = notifications.OrderByDescending(n => n.GetType().GetProperty("id")?.GetValue(n)).ToList();
 
             return Ok(notifications);
         }

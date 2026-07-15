@@ -29,14 +29,10 @@ namespace GoldenWhistle.Controllers
             _logger = logger;
         }
 
-        // ============================================================
-        // GET: /Mood/Index
-        // ============================================================
         public async Task<IActionResult> Index()
         {
             try
             {
-                // Get the current live match or the next upcoming match
                 var liveMatch = await _db.Matches
                     .Include(m => m.HomeTeam)
                     .Include(m => m.AwayTeam)
@@ -54,7 +50,6 @@ namespace GoldenWhistle.Controllers
 
                 if (liveMatch == null)
                 {
-                    // No matches found, return empty view model
                     return View(new MoodViewModel
                     {
                         MatchId = 0,
@@ -74,7 +69,6 @@ namespace GoldenWhistle.Controllers
                     });
                 }
 
-                // Get all votes for this match
                 var votes = await _db.MoodVotes
                     .Where(v => v.MatchId == liveMatch.Id)
                     .ToListAsync();
@@ -84,12 +78,10 @@ namespace GoldenWhistle.Controllers
                 var anxietyCount = votes.Count(v => v.Mood == MoodType.Anxiety);
                 var agonyCount = votes.Count(v => v.Mood == MoodType.Agony);
 
-                // Calculate percentages
                 var ecstasyPct = totalVotes > 0 ? (int)Math.Round(ecstasyCount * 100.0 / totalVotes) : 0;
                 var anxietyPct = totalVotes > 0 ? (int)Math.Round(anxietyCount * 100.0 / totalVotes) : 0;
                 var agonyPct = totalVotes > 0 ? (int)Math.Round(agonyCount * 100.0 / totalVotes) : 0;
 
-                // Get current user's vote
                 var userId = _userManager.GetUserId(User);
                 string? currentUserVote = null;
                 if (!string.IsNullOrEmpty(userId))
@@ -98,7 +90,6 @@ namespace GoldenWhistle.Controllers
                     currentUserVote = userVote?.Mood.ToString();
                 }
 
-                // Build timeline (group by 15-minute intervals)
                 var timeline = votes
                     .GroupBy(v => (int)((v.VotedAt - liveMatch.KickoffUtc).TotalMinutes / 15) * 15)
                     .OrderBy(g => g.Key)
@@ -110,20 +101,11 @@ namespace GoldenWhistle.Controllers
                         AgonyCount = g.Count(v => v.Mood == MoodType.Agony)
                     }).ToList();
 
-                // If no timeline data, add empty points for visualization
-                if (timeline.Count == 0)
-                {
-                    for (int i = 0; i <= 90; i += 15)
-                    {
-                        timeline.Add(new MoodTimelinePoint
-                        {
-                            Minute = $"{i}'",
-                            EcstasyCount = 0,
-                            AnxietyCount = 0,
-                            AgonyCount = 0
-                        });
-                    }
-                }
+                // NOTE: unlike the previous version, we no longer pad the
+                // timeline with 8 fabricated zero-value points when there is
+                // no vote history yet — an empty list is the honest
+                // representation of "no data collected", and the chart
+                // renders an empty axis instead of implying false precision.
 
                 var vm = new MoodViewModel
                 {
@@ -168,9 +150,32 @@ namespace GoldenWhistle.Controllers
             }
         }
 
-        // ============================================================
-        // POST: /api/mood/vote
-        // ============================================================
+        // NEW (audit §2): site.js's loadMatches() called this route to
+        // populate the "-- Select a match --" dropdown on the Mood page, but
+        // it never existed server-side, so the selector was always empty.
+        [HttpGet]
+        [Route("api/mood/matches")]
+        public async Task<IActionResult> GetVotableMatches()
+        {
+            var matches = await _db.Matches
+                .Include(m => m.HomeTeam)
+                .Include(m => m.AwayTeam)
+                .Where(m => !m.Cancelled)
+                .OrderByDescending(m => m.Started && !m.Finished) // live first
+                .ThenBy(m => m.KickoffUtc)
+                .Take(20)
+                .Select(m => new
+                {
+                    id = m.Id,
+                    homeTeam = m.HomeTeam.Name,
+                    awayTeam = m.AwayTeam.Name,
+                    date = m.KickoffUtc.ToString("MMM dd, HH:mm")
+                })
+                .ToListAsync();
+
+            return Ok(matches);
+        }
+
         [HttpPost]
         [Authorize]
         [Route("api/mood/vote")]
@@ -200,7 +205,6 @@ namespace GoldenWhistle.Controllers
                     return NotFound(new { error = "Match not found" });
                 }
 
-                // Upsert vote
                 var existing = await _db.MoodVotes
                     .FirstOrDefaultAsync(v => v.MatchId == request.MatchId && v.UserId == userId);
 
@@ -222,7 +226,6 @@ namespace GoldenWhistle.Controllers
 
                 await _db.SaveChangesAsync();
 
-                // Get updated vote counts
                 var votes = await _db.MoodVotes
                     .Where(v => v.MatchId == request.MatchId)
                     .ToListAsync();
@@ -232,12 +235,10 @@ namespace GoldenWhistle.Controllers
                 var anxiety = votes.Count(v => v.Mood == MoodType.Anxiety);
                 var agony = votes.Count(v => v.Mood == MoodType.Agony);
 
-                // Calculate percentages
                 var ecstasyPct = total > 0 ? (int)Math.Round(ecstasy * 100.0 / total) : 0;
                 var anxietyPct = total > 0 ? (int)Math.Round(anxiety * 100.0 / total) : 0;
                 var agonyPct = total > 0 ? (int)Math.Round(agony * 100.0 / total) : 0;
 
-                // Broadcast updated tallies via SignalR
                 try
                 {
                     await _moodHub.Clients.All.SendAsync("ReceiveTallies", new
@@ -272,80 +273,18 @@ namespace GoldenWhistle.Controllers
             }
         }
 
-        // ============================================================
-        // POST: /api/mood/test-vote (for testing purposes)
-        // ============================================================
-        [HttpPost]
-        [Route("api/mood/test-vote")]
-        public async Task<IActionResult> TestVote(int matchId, string mood)
-        {
-            try
-            {
-                if (!Enum.TryParse<MoodType>(mood, true, out var moodType))
-                {
-                    return BadRequest("Invalid mood type");
-                }
+        // REMOVED (audit §1 & §5, critical): api/mood/test-vote used to have
+        // no [Authorize] attribute and would insert a real MoodVote row tied
+        // to a fresh random Guid "test-user", directly skewing the live mood
+        // percentages shown to every real user on the Dashboard and Mood
+        // page. Anyone on the internet could call it repeatedly. This is
+        // exactly the kind of fake-data injection the audit flagged, so the
+        // endpoint has been deleted rather than merely secured — there is no
+        // legitimate production use for it. If you need a way to seed mood
+        // data for local development/demos, do it via a database seeding
+        // script gated behind `app.Environment.IsDevelopment()`, never as a
+        // reachable HTTP endpoint.
 
-                var match = await _db.Matches.FirstOrDefaultAsync(m => m.Id == matchId);
-                if (match == null)
-                {
-                    return NotFound("Match not found");
-                }
-
-                // Add a test vote (anonymous)
-                _db.MoodVotes.Add(new MoodVote
-                {
-                    MatchId = matchId,
-                    UserId = "test-user-" + Guid.NewGuid().ToString(),
-                    Mood = moodType,
-                    VotedAt = DateTime.UtcNow
-                });
-
-                await _db.SaveChangesAsync();
-
-                // Get updated counts
-                var votes = await _db.MoodVotes
-                    .Where(v => v.MatchId == matchId)
-                    .ToListAsync();
-
-                var total = votes.Count;
-                var ecstasy = votes.Count(v => v.Mood == MoodType.Ecstasy);
-                var anxiety = votes.Count(v => v.Mood == MoodType.Anxiety);
-                var agony = votes.Count(v => v.Mood == MoodType.Agony);
-
-                var ecstasyPct = total > 0 ? (int)Math.Round(ecstasy * 100.0 / total) : 0;
-                var anxietyPct = total > 0 ? (int)Math.Round(anxiety * 100.0 / total) : 0;
-                var agonyPct = total > 0 ? (int)Math.Round(agony * 100.0 / total) : 0;
-
-                // Broadcast via SignalR
-                await _moodHub.Clients.All.SendAsync("ReceiveTallies", new
-                {
-                    apiMatchId = match.ApiMatchId,
-                    ecstasy = ecstasyPct,
-                    anxiety = anxietyPct,
-                    agony = agonyPct,
-                    total = total
-                });
-
-                return Ok(new
-                {
-                    message = $"Test vote for {mood} added",
-                    ecstasyPct,
-                    anxietyPct,
-                    agonyPct,
-                    totalVotes = total
-                });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Test vote failed");
-                return StatusCode(500, new { error = ex.Message });
-            }
-        }
-
-        // ============================================================
-        // GET: /api/mood/stats/{matchId}
-        // ============================================================
         [HttpGet]
         [Route("api/mood/stats/{matchId}")]
         public async Task<IActionResult> GetStats(int matchId)
@@ -378,7 +317,10 @@ namespace GoldenWhistle.Controllers
                 return Ok(new
                 {
                     matchId = match.Id,
-                    matchName = $"{match.HomeTeam.Name} vs {match.AwayTeam.Name}",
+                    homeTeam = match.HomeTeam.Name,
+                    awayTeam = match.AwayTeam.Name,
+                    status = match.Started ? (match.Finished ? "Full-time" : "Live") : "Pre-match",
+                    score = $"{match.HomeScore ?? 0}–{match.AwayScore ?? 0}",
                     totalVotes = total,
                     ecstasy,
                     anxiety,
@@ -394,7 +336,7 @@ namespace GoldenWhistle.Controllers
                 return StatusCode(500, new { error = ex.Message });
             }
         }
-        // GET: /api/mood/global-stats
+
         [HttpGet]
         [Route("api/mood/global-stats")]
         public async Task<IActionResult> GetGlobalStats()
@@ -417,10 +359,6 @@ namespace GoldenWhistle.Controllers
         }
     }
 
-
-    // ============================================================
-    // Request DTO
-    // ============================================================
     public class VoteRequest
     {
         public int MatchId { get; set; }

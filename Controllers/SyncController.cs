@@ -1,12 +1,19 @@
 ﻿using GoldenWhistle.Data;
-using GoldenWhistle.Hubs;
 using GoldenWhistle.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace GoldenWhistle.Controllers;
 
+// FIX (audit §5, critique): this controller previously had NO authorization
+// at all on /api/sync/live and /api/sync/stats. Anyone on the internet could
+// call these repeatedly, each call hitting the paid RapidAPI football
+// endpoint — a direct cost/DoS exposure. We now require a shared secret
+// header, checked against configuration (appsettings / environment
+// variable), so only your own scheduler/background job (or an admin) can
+// trigger a sync. If you already trigger syncs exclusively from
+// SyncBackgroundService in-process, consider removing the public HTTP routes
+// entirely and keeping this only as an internal fallback.
 [Route("api/[controller]")]
 [ApiController]
 public class SyncController : ControllerBase
@@ -15,6 +22,7 @@ public class SyncController : ControllerBase
     private readonly IFootballApiService _footballApiService;
     private readonly IBracketScoringService _scoringService;
     private readonly IMatchStatsService _matchStatsService;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<SyncController> _logger;
 
     public SyncController(
@@ -22,30 +30,43 @@ public class SyncController : ControllerBase
         IFootballApiService footballApiService,
         IBracketScoringService scoringService,
         IMatchStatsService matchStatsService,
+        IConfiguration configuration,
         ILogger<SyncController> logger)
     {
         _db = db;
         _footballApiService = footballApiService;
         _scoringService = scoringService;
         _matchStatsService = matchStatsService;
+        _configuration = configuration;
         _logger = logger;
     }
 
-    // ===== UPDATED: SyncLive chains stats sync =====
+    private bool IsAuthorizedSyncCaller()
+    {
+        var expectedKey = _configuration["SyncApi:Key"];
+        if (string.IsNullOrEmpty(expectedKey))
+        {
+            // Fail closed: if no key is configured, refuse rather than
+            // silently allow public access.
+            _logger.LogWarning("SyncApi:Key is not configured — refusing sync request.");
+            return false;
+        }
+
+        return Request.Headers.TryGetValue("X-Sync-Key", out var provided)
+            && provided == expectedKey;
+    }
+
     [HttpGet("live")]
     public async Task<IActionResult> SyncLive()
     {
+        if (!IsAuthorizedSyncCaller()) return Unauthorized();
+
         try
         {
             _logger.LogInformation("Sync triggered manually.");
 
-            // 1. Sync live matches from API
             var matchCount = await _footballApiService.SyncLiveMatchesAsync();
-
-            // 2. Score finished matches (award points to bracket picks)
             var scoredCount = await _scoringService.ScoreFinishedMatchesAsync();
-
-            // 3. Sync match statistics for live/finished matches
             var statsCount = await _matchStatsService.SyncMatchStatsAsync();
 
             return Ok(new
@@ -61,12 +82,12 @@ public class SyncController : ControllerBase
             return StatusCode(500, new { error = ex.Message });
         }
     }
-    // ================================================
 
-    // ===== NEW ENDPOINT: Sync Match Stats =====
     [HttpGet("stats")]
     public async Task<IActionResult> SyncStats()
     {
+        if (!IsAuthorizedSyncCaller()) return Unauthorized();
+
         try
         {
             _logger.LogInformation("Stats sync triggered manually.");
@@ -79,24 +100,12 @@ public class SyncController : ControllerBase
             return StatusCode(500, new { error = ex.Message });
         }
     }
-    // ==========================================
 
-    [HttpGet("testvote")]
-    public async Task<IActionResult> TestVote()
-    {
-        var match = await _db.Matches.FirstOrDefaultAsync();
-        if (match is null) return NotFound("No matches found.");
-
-        var hubContext = HttpContext.RequestServices.GetRequiredService<IHubContext<MoodMapHub>>();
-        await hubContext.Clients.All.SendAsync("ReceiveTallies", new
-        {
-            apiMatchId = match.ApiMatchId,
-            ecstasy = 5,
-            agony = 2,
-            anxiety = 1,
-            total = 8
-        });
-
-        return Ok("Test tally broadcast sent.");
-    }
+    // REMOVED (audit §1 & §5, critique): /api/sync/testvote had no auth and
+    // broadcast entirely hardcoded fake tallies (ecstasy=5, agony=2,
+    // anxiety=1, total=8) to every connected SignalR client, without even
+    // persisting anything to the database. This was fake data pushed live
+    // to real users and has been deleted. For local manual testing, trigger
+    // MoodMapHub.CastVote (or the /api/mood/vote endpoint, authenticated)
+    // from a real signed-in test account instead.
 }

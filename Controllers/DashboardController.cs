@@ -1,7 +1,7 @@
 ﻿using GoldenWhistle.Data;
 using GoldenWhistle.Models;
-using GoldenWhistle.ViewModels.Dashboard;   // ✅ Pour DashboardViewModel, FixtureCardViewModel, LeaderRowViewModel, XgDataPoint
-using GoldenWhistle.ViewModels.Bracket;     // ✅ Pour BracketMatchViewModel
+using GoldenWhistle.ViewModels.Dashboard;
+using GoldenWhistle.ViewModels.Bracket;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -28,7 +28,6 @@ namespace GoldenWhistle.Controllers
             var userId = _userManager.GetUserId(User) ?? string.Empty;
             var today = DateTime.UtcNow.Date;
 
-            // ─── Fixtures du jour ──────────────────────────────────────
             var fixtures = await _db.Matches
                 .Include(m => m.HomeTeam)
                 .Include(m => m.AwayTeam)
@@ -37,13 +36,11 @@ namespace GoldenWhistle.Controllers
                 .Take(4)
                 .ToListAsync();
 
-            // ─── Top 3 leaders ────────────────────────────────────────
             var topLeaders = await _db.Users
                 .OrderByDescending(u => u.TotalPoints)
                 .Take(3)
                 .ToListAsync();
 
-            // ─── Bracket matches ──────────────────────────────────────
             var bracketMatches = await _db.Matches
                 .Include(m => m.HomeTeam)
                 .Include(m => m.AwayTeam)
@@ -51,7 +48,6 @@ namespace GoldenWhistle.Controllers
                 .OrderBy(m => m.KickoffUtc)
                 .ToListAsync();
 
-            // ─── xG data ──────────────────────────────────────────────
             var matchStats = await _db.MatchStats
                 .Include(s => s.Match)
                     .ThenInclude(m => m.HomeTeam)
@@ -62,7 +58,6 @@ namespace GoldenWhistle.Controllers
                 .Take(10)
                 .ToListAsync();
 
-            // ─── Mood votes ────────────────────────────────────────────
             var liveMatch = fixtures.FirstOrDefault(m => m.Started && !m.Finished);
             int ecstasyPct = 0, anxietyPct = 0, agonyPct = 0, totalVotes = 0;
 
@@ -83,7 +78,6 @@ namespace GoldenWhistle.Controllers
                     : 0;
             }
 
-            // ─── User picks stats ──────────────────────────────────────
             var userPicks = await _db.BracketPicks
                 .Where(p => p.UserId == userId && p.IsScored)
                 .ToListAsync();
@@ -126,9 +120,14 @@ namespace GoldenWhistle.Controllers
                     PointsDelta = 0
                 }).ToList(),
 
+                // FIX (audit §3): use the real Match.Stage/StageLabel instead
+                // of the broken GetRound(StatusShort) mapping, which always
+                // fell into the "QF" default because StatusShort never holds
+                // a stage string.
                 BracketMatches = bracketMatches.Select(m => new BracketMatchViewModel
                 {
-                    Round = GetRound(m.StatusShort),
+                    MatchId = m.Id,
+                    Round = m.StageLabel,
                     HomeTeamCode = m.HomeTeam.ShortName,
                     HomeTeamName = m.HomeTeam.Name,
                     AwayTeamCode = m.AwayTeam.ShortName,
@@ -179,12 +178,6 @@ namespace GoldenWhistle.Controllers
             }
         }
 
-        private static string GetRound(string statusShort) => statusShort switch
-        {
-            "QF" => "QF",
-            "SF" => "SF",
-            "F" => "FINAL",
-            _ => "QF"
-        };
+        // GetRound(string) removed — replaced by Match.StageLabel (see Models/Match.cs)
     }
 }
